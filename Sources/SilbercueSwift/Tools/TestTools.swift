@@ -89,19 +89,100 @@ enum TestTools {
         return "/tmp/ss-\(prefix)-\(ts).xcresult"
     }
 
-    /// Build xcodebuild arguments common to build/test
+    /// Build xcodebuild arguments common to build/test.
+    /// Resolves simulator name to UDID for reliable destination matching
+    /// (names with special chars like "iPad Pro 13-inch (M4)" fail with name= destinations).
     private static func xcodebuildBaseArgs(
         project: String, scheme: String, simulator: String, configuration: String
-    ) -> [String] {
+    ) async -> [String] {
         let isWorkspace = project.hasSuffix(".xcworkspace")
         let projectFlag = isWorkspace ? "-workspace" : "-project"
+
+        // Resolve destination: UDID > booted UDID > name fallback
+        let destination: String
+        if isUDID(simulator) {
+            destination = "platform=iOS Simulator,id=\(simulator)"
+        } else if simulator == "booted" {
+            if let udid = await resolveBootedUDID() {
+                destination = "platform=iOS Simulator,id=\(udid)"
+            } else {
+                destination = "platform=iOS Simulator,name=\(simulator)"
+            }
+        } else if let udid = await resolveSimulatorUDID(name: simulator) {
+            destination = "platform=iOS Simulator,id=\(udid)"
+        } else {
+            destination = "platform=iOS Simulator,name=\(simulator)"
+        }
+
         return [
             projectFlag, project,
             "-scheme", scheme,
             "-configuration", configuration,
-            "-destination", "platform=iOS Simulator,name=\(simulator)",
+            "-destination", destination,
             "-skipMacroValidation",
         ]
+    }
+
+    // MARK: - Simulator Resolution (shared with BuildTools)
+
+    private static func isUDID(_ s: String) -> Bool {
+        let pattern = #"^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$"#
+        return s.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    private static func resolveSimulatorUDID(name: String) async -> String? {
+        guard let result = try? await Shell.xcrun("simctl", "list", "devices", "-j"),
+              result.succeeded,
+              let data = result.stdout.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let devices = json["devices"] as? [String: [[String: Any]]] else {
+            return nil
+        }
+
+        let nameLower = name.lowercased()
+        var exactMatch: String?
+        var caseInsensitiveMatch: String?
+        var containsMatch: String?
+        var bootedContainsMatch: String?
+
+        for (_, deviceList) in devices {
+            for device in deviceList {
+                guard let deviceName = device["name"] as? String,
+                      let udid = device["udid"] as? String else { continue }
+                let isAvailable = device["isAvailable"] as? Bool ?? false
+                let isBooted = (device["state"] as? String) == "Booted"
+                guard isAvailable || isBooted else { continue }
+
+                if deviceName == name {
+                    exactMatch = udid
+                } else if exactMatch == nil && deviceName.lowercased() == nameLower {
+                    caseInsensitiveMatch = udid
+                } else if deviceName.lowercased().contains(nameLower) {
+                    if isBooted { bootedContainsMatch = udid }
+                    else if containsMatch == nil { containsMatch = udid }
+                }
+            }
+        }
+        return exactMatch ?? caseInsensitiveMatch ?? bootedContainsMatch ?? containsMatch
+    }
+
+    private static func resolveBootedUDID() async -> String? {
+        guard let result = try? await Shell.xcrun("simctl", "list", "devices", "booted", "-j"),
+              result.succeeded,
+              let data = result.stdout.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let devices = json["devices"] as? [String: [[String: Any]]] else {
+            return nil
+        }
+        for (_, deviceList) in devices {
+            for device in deviceList {
+                if let state = device["state"] as? String, state == "Booted",
+                   let udid = device["udid"] as? String {
+                    return udid
+                }
+            }
+        }
+        return nil
     }
 
     /// Run xcodebuild test and return the xcresult path
@@ -113,7 +194,7 @@ enum TestTools {
         // Remove old xcresult if exists
         _ = try? await Shell.run("/bin/rm", arguments: ["-rf", resultPath])
 
-        var args = xcodebuildBaseArgs(
+        var args = await xcodebuildBaseArgs(
             project: project, scheme: scheme,
             simulator: simulator, configuration: configuration
         )
@@ -146,7 +227,7 @@ enum TestTools {
     ) async throws -> (ShellResult, String) {
         _ = try? await Shell.run("/bin/rm", arguments: ["-rf", resultPath])
 
-        var args = xcodebuildBaseArgs(
+        var args = await xcodebuildBaseArgs(
             project: project, scheme: scheme,
             simulator: simulator, configuration: configuration
         )

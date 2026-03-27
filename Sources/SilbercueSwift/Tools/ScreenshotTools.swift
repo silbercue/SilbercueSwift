@@ -25,6 +25,7 @@ enum ScreenshotTools {
         let start = CFAbsoluteTimeGetCurrent()
         do {
             let result = try await Shell.xcrun(
+                timeout: 10,
                 "simctl", "io", sim, "screenshot",
                 "--type=\(format)",
                 outputPath
