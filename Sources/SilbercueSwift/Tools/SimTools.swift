@@ -71,6 +71,40 @@ enum SimTools {
                 "required": .array([.string("bundle_id")]),
             ])
         ),
+        Tool(
+            name: "clone_sim",
+            description: "Clone a simulator to create a snapshot of its current state (apps, data, settings). The clone is a new simulator that can be booted independently.",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "simulator": .object(["type": .string("string"), "description": .string("Source simulator UDID or name")]),
+                    "name": .object(["type": .string("string"), "description": .string("Name for the cloned simulator")]),
+                ]),
+                "required": .array([.string("simulator"), .string("name")]),
+            ])
+        ),
+        Tool(
+            name: "erase_sim",
+            description: "Erase a simulator — resets to factory state. Removes all apps, data, and settings. Simulator must be shut down first.",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "simulator": .object(["type": .string("string"), "description": .string("Simulator UDID, name, or 'all' to erase all simulators")]),
+                ]),
+                "required": .array([.string("simulator")]),
+            ])
+        ),
+        Tool(
+            name: "delete_sim",
+            description: "Permanently delete a simulator. Use to clean up cloned snapshots that are no longer needed.",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "simulator": .object(["type": .string("string"), "description": .string("Simulator UDID or name to delete")]),
+                ]),
+                "required": .array([.string("simulator")]),
+            ])
+        ),
     ]
 
     // MARK: - Resolve simulator name to UDID
@@ -235,6 +269,69 @@ enum SimTools {
             try? await WDAClient.shared.deleteSession()
 
             return result.succeeded ? .ok("Terminated \(bundleId)") : .fail("Terminate failed: \(result.stderr)")
+        } catch {
+            return .fail("Error: \(error)")
+        }
+    }
+
+    // MARK: - Simulator State Snapshots
+
+    static func cloneSim(_ args: [String: Value]?) async -> CallTool.Result {
+        guard let sim = args?["simulator"]?.stringValue,
+              let name = args?["name"]?.stringValue, !name.isEmpty else {
+            return .fail("Missing required: simulator, name")
+        }
+        do {
+            let udid = try await resolveSimulator(sim)
+            let result = try await Shell.xcrun(timeout: 60, "simctl", "clone", udid, name)
+            if result.succeeded {
+                let cloneUDID = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                return .ok("Cloned simulator: \(name)\nSource: \(udid)\nClone UDID: \(cloneUDID)")
+            }
+            return .fail("Clone failed: \(result.stderr)")
+        } catch {
+            return .fail("Error: \(error)")
+        }
+    }
+
+    static func eraseSim(_ args: [String: Value]?) async -> CallTool.Result {
+        guard let sim = args?["simulator"]?.stringValue else {
+            return .fail("Missing required: simulator")
+        }
+        do {
+            let target = sim == "all" ? "all" : try await resolveSimulator(sim)
+            let result = try await Shell.xcrun(timeout: 30, "simctl", "erase", target)
+
+            // Invalidate WDA session — erased simulator has no apps
+            try? await WDAClient.shared.deleteSession()
+
+            if result.succeeded {
+                return .ok("Erased simulator: \(target)")
+            }
+            if result.stderr.contains("state: Booted") {
+                return .fail("Cannot erase a booted simulator. Shut it down first with shutdown_sim.")
+            }
+            return .fail("Erase failed: \(result.stderr)")
+        } catch {
+            return .fail("Error: \(error)")
+        }
+    }
+
+    static func deleteSim(_ args: [String: Value]?) async -> CallTool.Result {
+        guard let sim = args?["simulator"]?.stringValue else {
+            return .fail("Missing required: simulator")
+        }
+        do {
+            let udid = try await resolveSimulator(sim)
+            let result = try await Shell.xcrun(timeout: 30, "simctl", "delete", udid)
+
+            // Invalidate WDA session if we deleted the target simulator
+            try? await WDAClient.shared.deleteSession()
+
+            if result.succeeded {
+                return .ok("Deleted simulator: \(udid)")
+            }
+            return .fail("Delete failed: \(result.stderr)")
         } catch {
             return .fail("Error: \(error)")
         }

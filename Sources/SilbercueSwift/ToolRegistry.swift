@@ -31,6 +31,9 @@ enum ToolRegistry {
         case "install_app":       return await SimTools.installApp(args)
         case "launch_app":        return await SimTools.launchApp(args)
         case "terminate_app":     return await SimTools.terminateApp(args)
+        case "clone_sim":         return await SimTools.cloneSim(args)
+        case "erase_sim":         return await SimTools.eraseSim(args)
+        case "delete_sim":        return await SimTools.deleteSim(args)
 
         // Screenshots
         case "screenshot":        return await ScreenshotTools.screenshot(args)
