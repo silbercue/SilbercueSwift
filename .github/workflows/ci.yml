@@ -1,0 +1,122 @@
+name: SilbercueWDA CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'SilbercueWDA/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'SilbercueWDA/**'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (Xcode ${{ matrix.xcode }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - xcode: '16.2'
+            runner: 'macos-15'
+            ios: '18.2'
+            device: 'iPhone 16'
+          - xcode: '15.4'
+            runner: 'macos-14'
+            ios: '17.5'
+            device: 'iPhone 15'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        env:
+          XCODE_VERSION: ${{ matrix.xcode }}
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        working-directory: SilbercueWDA
+        run: |
+          brew install xcodegen || { echo "ERROR: xcodegen install failed"; exit 1; }
+          xcodegen generate
+
+      - name: Build SilbercueWDACLI (macOS)
+        working-directory: SilbercueWDA
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project SilbercueWDA.xcodeproj \
+            -scheme SilbercueWDACLI \
+            -destination 'platform=macOS' \
+            OTHER_SWIFT_FLAGS='-strict-concurrency=complete' \
+            | xcpretty
+
+      - name: Build SilbercueWDARunner (iOS Simulator)
+        working-directory: SilbercueWDA
+        env:
+          IOS_VERSION: ${{ matrix.ios }}
+          DEVICE_NAME: ${{ matrix.device }}
+        run: |
+          set -o pipefail
+          xcodebuild build-for-testing \
+            -project SilbercueWDA.xcodeproj \
+            -scheme SilbercueWDARunner \
+            -destination "platform=iOS Simulator,name=${DEVICE_NAME},OS=${IOS_VERSION}" \
+            OTHER_SWIFT_FLAGS='-strict-concurrency=complete' \
+            | xcpretty
+
+  code-quality:
+    name: Code Quality Audit
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run quality audit (static checks only)
+        working-directory: SilbercueWDA
+        run: |
+          chmod +x scripts/audit-quality.sh
+          WDA_URL=http://127.0.0.1:9999 bash scripts/audit-quality.sh
+
+  swift-strict-concurrency:
+    name: Swift 6 Strict Concurrency
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.2.app
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        working-directory: SilbercueWDA
+        run: |
+          brew install xcodegen || { echo "ERROR: xcodegen install failed"; exit 1; }
+          xcodegen generate
+
+      - name: Build with strict concurrency (NFR-12)
+        working-directory: SilbercueWDA
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project SilbercueWDA.xcodeproj \
+            -scheme SilbercueWDACLI \
+            -destination 'platform=macOS' \
+            OTHER_SWIFT_FLAGS='-strict-concurrency=complete' \
+            2>&1 | tee build.log | xcpretty
+
+          # Report concurrency warnings (informational, does not fail build)
+          warnings=$(grep -c "concurrency" build.log 2>/dev/null || true)
+          if [ "${warnings:-0}" -gt 0 ]; then
+            echo "::warning::${warnings} concurrency-related diagnostics found"
+            grep "concurrency" build.log || true
+          fi
