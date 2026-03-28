@@ -53,7 +53,7 @@ enum VisualTools {
 
             // Capture screenshot — burst (CoreSimulator) or simctl fallback
             let cgImage: CGImage
-            if CoreSimCapture.isAvailable, let img = try? CoreSimCapture.captureImage(simulator: sim)
+            if CoreSimCapture.isAvailable, let img = try? await CoreSimCapture.captureImageAsync(simulator: sim)
             {
                 cgImage = img
             } else {
@@ -107,7 +107,7 @@ enum VisualTools {
         do {
             // Capture current screenshot — burst or simctl fallback
             let currentImage: CGImage
-            if CoreSimCapture.isAvailable, let img = try? CoreSimCapture.captureImage(simulator: sim)
+            if CoreSimCapture.isAvailable, let img = try? await CoreSimCapture.captureImageAsync(simulator: sim)
             {
                 currentImage = img
             } else {
@@ -165,18 +165,18 @@ enum VisualTools {
         }
     }
 
-    // MARK: - Image Helpers
+    // MARK: - Image Helpers (internal for reuse by MultiDeviceTools)
 
-    private static func sanitize(_ name: String) -> String {
+    static func sanitize(_ name: String) -> String {
         name.replacingOccurrences(of: "[^a-zA-Z0-9_-]", with: "_", options: .regularExpression)
     }
 
-    private static func loadCGImage(path: String) -> CGImage? {
+    static func loadCGImage(path: String) -> CGImage? {
         guard let dataProvider = CGDataProvider(filename: path) else { return nil }
         return CGImage(pngDataProviderSource: dataProvider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
     }
 
-    private static func savePNG(image: CGImage, path: String) {
+    static func savePNG(image: CGImage, path: String) {
         guard let dest = CGImageDestinationCreateWithURL(
             URL(fileURLWithPath: path) as CFURL,
             "public.png" as CFString,
@@ -194,7 +194,7 @@ enum VisualTools {
         let diffImage: CGImage?
     }
 
-    private static func pixelCompare(baseline: CGImage, current: CGImage) -> ComparisonResult {
+    static func pixelCompare(baseline: CGImage, current: CGImage) -> ComparisonResult {
         let bw = baseline.width, bh = baseline.height
         let cw = current.width, ch = current.height
         let sizeMismatch = bw != cw || bh != ch

@@ -42,6 +42,7 @@ enum CoreSimCapture {
     // MARK: - Public API
 
     /// Capture framebuffer as CGImage (no encoding, no file I/O).
+    /// Synchronous version — only call from non-async contexts or DispatchQueue.
     static func captureImage(simulator: String = "booted") throws -> CGImage {
         guard coreSimHandle != nil else {
             throw CaptureError.frameworkNotFound
@@ -54,6 +55,22 @@ enum CoreSimCapture {
             throw CaptureError.conversionFailed
         }
         return cgImage
+    }
+
+    /// Async-safe version that runs the synchronous ObjC/XPC calls on a dedicated
+    /// POSIX thread (DispatchQueue.global), NOT on Swift's Cooperative Thread Pool.
+    /// This prevents thread pool exhaustion when CoreSimulator XPC calls block.
+    static func captureImageAsync(simulator: String = "booted") async throws -> CGImage {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInteractive).async {
+                do {
+                    let image = try captureImage(simulator: simulator)
+                    continuation.resume(returning: image)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 
     // MARK: - Cached Surface Access

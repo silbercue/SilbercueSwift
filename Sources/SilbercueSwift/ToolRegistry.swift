@@ -13,6 +13,7 @@ enum ToolRegistry {
         tools += ConsoleTools.tools
         tools += TestTools.tools
         tools += VisualTools.tools
+        tools += MultiDeviceTools.tools
         return tools
     }
 
@@ -80,6 +81,9 @@ enum ToolRegistry {
         // Visual Regression
         case "save_visual_baseline": return await VisualTools.saveVisualBaseline(args)
         case "compare_visual":       return await VisualTools.compareVisual(args)
+
+        // Multi-Device
+        case "multi_device_check":   return await MultiDeviceTools.multiDeviceCheck(args)
 
         default:
             return .fail("Unknown tool: \(name)")

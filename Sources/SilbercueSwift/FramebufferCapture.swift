@@ -45,9 +45,10 @@ enum FramebufferCapture {
         quality: Double = 0.8
     ) async throws -> (base64: String, dataSize: Int, width: Int, height: Int, method: String) {
         // Tier 3: BURST — CoreSimulator IOSurface (fastest, TCC-free)
+        // Uses captureImageAsync to run ObjC/XPC on DispatchQueue, not cooperative pool
         if CoreSimCapture.isAvailable {
             do {
-                let cgImage = try CoreSimCapture.captureImage(simulator: simulator)
+                let cgImage = try await CoreSimCapture.captureImageAsync(simulator: simulator)
                 let data = try encodeImage(cgImage, format: format, quality: quality)
                 return (data.base64EncodedString(), data.count, cgImage.width, cgImage.height, "burst")
             } catch {

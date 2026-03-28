@@ -36,16 +36,26 @@ enum Shell {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        // Set termination handler BEFORE run() to avoid race condition.
+        // Uses withCheckedContinuation instead of process.waitUntilExit() to avoid
+        // blocking the Swift Cooperative Thread Pool. waitUntilExit() is synchronous
+        // and permanently consumes a pool thread — with enough concurrent shell calls
+        // or ESC-interrupted tasks, the pool is exhausted and ALL async work deadlocks.
+        let terminationContinuation = AsyncStream<Int32>.makeStream()
+        process.terminationHandler = { proc in
+            terminationContinuation.continuation.yield(proc.terminationStatus)
+            terminationContinuation.continuation.finish()
+        }
+
         try process.run()
 
-        // Timeout watchdog — kills the process if it exceeds the allowed time.
-        // Without this, process.waitUntilExit() blocks forever on hung processes.
+        // Timeout watchdog
         let pid = process.processIdentifier
         let timeoutNanos = UInt64(timeout * 1_000_000_000)
         let timeoutTask = Task.detached {
             try? await Task.sleep(nanoseconds: timeoutNanos)
             kill(pid, SIGTERM)
-            try? await Task.sleep(nanoseconds: 2_000_000_000) // 2s grace before SIGKILL
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
             kill(pid, SIGKILL)
         }
 
@@ -55,7 +65,8 @@ enum Shell {
 
         let (out, err) = try await (stdoutData, stderrData)
 
-        process.waitUntilExit()
+        // Await process exit without blocking the cooperative thread pool
+        for await _ in terminationContinuation.stream {}
         timeoutTask.cancel()
 
         // Detect killed process (timeout or crash → uncaughtSignal)
