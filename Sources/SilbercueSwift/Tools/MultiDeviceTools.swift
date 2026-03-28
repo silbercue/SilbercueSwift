@@ -191,11 +191,13 @@ enum MultiDeviceTools {
         // Build lookup tables from the single fetch
         var bootedUDIDs = Set<String>()
         var nameToUDID: [String: String] = [:]  // lowercased name → UDID
+        var udidToName: [String: String] = [:]  // UDID → display name (for window matching)
         for (_, devs) in deviceList {
             for dev in devs {
                 guard let name = dev["name"] as? String,
                       let udid = dev["udid"] as? String else { continue }
                 nameToUDID[name.lowercased()] = udid
+                udidToName[udid] = name
                 if let state = dev["state"] as? String, state == "Booted" {
                     bootedUDIDs.insert(udid)
                 }
@@ -209,17 +211,21 @@ enum MultiDeviceTools {
             options: .caseInsensitive)
         for name in simNames {
             let udid: String
+            let displayName: String
             if uuidRegex.firstMatch(in: name, range: NSRange(name.startIndex..., in: name)) != nil {
-                udid = name  // Already a UDID
+                udid = name
+                displayName = udidToName[name] ?? name  // Resolve UDID → device name
             } else if let found = nameToUDID[name.lowercased()] {
-                udid = found  // Exact name match
+                udid = found
+                displayName = name
             } else if let found = nameToUDID.first(where: { $0.key.hasPrefix(name.lowercased()) }) {
-                udid = found.value  // Prefix match
+                udid = found.value
+                displayName = udidToName[found.value] ?? name
             } else {
                 return .fail("Simulator '\(name)' not found")
             }
             devices.append(DeviceState(
-                name: name, udid: udid,
+                name: displayName, udid: udid,
                 wasAlreadyBooted: bootedUDIDs.contains(udid)))
         }
 
@@ -339,6 +345,13 @@ enum MultiDeviceTools {
         var allScreenshots: [DeviceScreenshot] = []
         var allPairs: [PairResult] = []
 
+        // Resolve window IDs once — stable integers, no name matching ambiguity
+        var windowIDs: [String: Int] = [:]
+        if testLandscape {
+            windowIDs = await resolveWindowIDs(deviceNames: readyDevices.map(\.name))
+            log("  Window IDs: \(windowIDs)")
+        }
+
         for mode in modes {
             log("  Mode \(mode.label): setting appearance...")
             for d in readyDevices {
@@ -348,12 +361,15 @@ enum MultiDeviceTools {
             // Set orientation
             if mode.orientation == "landscape" {
                 for d in readyDevices {
-                    await rotateDevice(name: d.name, toPortrait: false)
+                    if let wid = windowIDs[d.name] {
+                        await rotateDevice(windowID: wid, name: d.name, toPortrait: false)
+                    } else {
+                        log("    WARN: No window ID for \(d.name) — skipping rotation")
+                    }
                 }
-                try? await Task.sleep(nanoseconds: 1_500_000_000)  // 1.5s for rotation animation
+                try? await Task.sleep(nanoseconds: 1_500_000_000)
             } else if modes.contains(where: { $0.orientation == "landscape" }) {
                 // Ensure portrait if we've been in landscape before
-                // (only needed on non-first portrait mode after landscape)
             }
 
             try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5s for appearance transition
@@ -418,7 +434,9 @@ enum MultiDeviceTools {
         // Restore portrait if we rotated
         if testLandscape {
             for d in readyDevices {
-                await rotateDevice(name: d.name, toPortrait: true)
+                if let wid = windowIDs[d.name] {
+                    await rotateDevice(windowID: wid, name: d.name, toPortrait: true)
+                }
             }
         }
         // Restore light mode if we changed
@@ -489,7 +507,7 @@ enum MultiDeviceTools {
         let primaryShots = allScreenshots.filter { $0.mode.label == primaryMode.label && $0.image != nil }
         for ss in primaryShots {
             guard let img = ss.image else { continue }
-            if let data = try? FramebufferCapture.encodeImage(img, format: "jpeg", quality: 0.6) {
+            if let data = try? FramebufferCapture.encodeImage(scaleDown(img), format: "jpeg", quality: 0.6) {
                 content.append(.image(data: data.base64EncodedString(), mimeType: "image/jpeg", annotations: nil, _meta: nil))
                 content.append(.text(text: "\(ss.name) [\(primaryMode.label)] \(img.width)x\(img.height)", annotations: nil, _meta: nil))
             }
@@ -500,7 +518,7 @@ enum MultiDeviceTools {
             let darkShots = allScreenshots.filter { $0.mode.appearance == "dark" && $0.mode.orientation == "portrait" && $0.image != nil }
             for ss in darkShots {
                 guard let img = ss.image else { continue }
-                if let data = try? FramebufferCapture.encodeImage(img, format: "jpeg", quality: 0.6) {
+                if let data = try? FramebufferCapture.encodeImage(scaleDown(img), format: "jpeg", quality: 0.6) {
                     content.append(.image(data: data.base64EncodedString(), mimeType: "image/jpeg", annotations: nil, _meta: nil))
                     content.append(.text(text: "\(ss.name) [portrait-dark] \(img.width)x\(img.height)", annotations: nil, _meta: nil))
                 }
@@ -510,7 +528,7 @@ enum MultiDeviceTools {
         // Diff images for failures
         for p in allPairs where !p.passed && p.sameResolution {
             if let path = p.diffPath, let img = VisualTools.loadCGImage(path: path),
-                let data = try? FramebufferCapture.encodeImage(img, format: "jpeg", quality: 0.8)
+                let data = try? FramebufferCapture.encodeImage(scaleDown(img), format: "jpeg", quality: 0.8)
             {
                 content.append(.image(data: data.base64EncodedString(), mimeType: "image/jpeg", annotations: nil, _meta: nil))
                 content.append(.text(text: "DIFF [\(p.mode.label)]: \(p.nameA) vs \(p.nameB)", annotations: nil, _meta: nil))
@@ -523,29 +541,88 @@ enum MultiDeviceTools {
 
     // MARK: - Appearance & Rotation
 
-    /// Rotate a simulator device via AppleScript keyboard shortcut.
-    /// Targets the correct Simulator window by device name.
-    private static func rotateDevice(name: String, toPortrait: Bool) async {
-        // Cmd+Left = Rotate Left (portrait → landscape)
-        // Cmd+Right = Rotate Right (landscape → portrait)
-        let keyCode = toPortrait ? 124 : 123
-        let escapedName = name.replacingOccurrences(of: "\"", with: "\\\"")
+    /// Resolve CGWindowIDs for all open Simulator windows.
+    /// Returns a mapping of device name → window ID (unique integer).
+    /// Window IDs are stable for the lifetime of the window — no name matching needed.
+    private static func resolveWindowIDs(deviceNames: [String]) async -> [String: Int] {
         let script = """
+        set output to ""
         tell application "System Events"
             tell process "Simulator"
-                set frontmost to true
                 repeat with w in windows
-                    if name of w contains "\(escapedName)" then
-                        perform action "AXRaise" of w
-                        delay 0.3
-                        key code \(keyCode) using command down
-                        exit repeat
-                    end if
+                    set output to output & (id of w) & "|||" & (name of w) & linefeed
                 end repeat
             end tell
         end tell
+        return output
         """
-        _ = try? await Shell.run("/usr/bin/osascript", arguments: ["-e", script], timeout: 10)
+        guard let result = try? await Shell.run("/usr/bin/osascript", arguments: ["-e", script], timeout: 10),
+              result.succeeded else { return [:] }
+
+        var mapping: [String: Int] = [:]
+        // Sort names longest-first so "iPhone 16 Pro Max" matches before "iPhone 16 Pro"
+        let sortedNames = deviceNames.sorted { $0.count > $1.count }
+        var claimedWindows = Set<Int>()
+
+        for line in result.stdout.split(separator: "\n") {
+            let parts = line.split(separator: "|||", maxSplits: 1)
+            guard parts.count == 2, let wid = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { continue }
+            let windowTitle = String(parts[1])
+            for name in sortedNames {
+                if windowTitle.contains(name) && mapping[name] == nil && !claimedWindows.contains(wid) {
+                    mapping[name] = wid
+                    claimedWindows.insert(wid)
+                    break  // This window is claimed, don't match shorter names
+                }
+            }
+        }
+        return mapping
+    }
+
+    /// Rotate a simulator via AppleScript menu click using CGWindowID.
+    /// No name matching — the integer window ID is unique and stable.
+    private static func rotateDevice(windowID: Int, name: String, toPortrait: Bool) async {
+        let menuItem = toPortrait ? "Rotate Right" : "Rotate Left"
+        let script = """
+        tell application "Simulator" to activate
+        delay 0.2
+        tell application "System Events"
+            tell process "Simulator"
+                perform action "AXRaise" of (first window whose id is \(windowID))
+                delay 0.3
+                click menu item "\(menuItem)" of menu "Device" of menu bar 1
+            end tell
+        end tell
+        """
+        log("    Rotate \(name) (wid=\(windowID)) → \(toPortrait ? "portrait" : "landscape")")
+        let result = try? await Shell.run("/usr/bin/osascript", arguments: ["-e", script], timeout: 10)
+        let ok = result?.succeeded ?? false
+        log("    Rotate result: \(ok ? "OK" : result?.stderr ?? "failed")")
+    }
+
+    // MARK: - Image Scaling
+
+    /// Scale a CGImage down so neither dimension exceeds maxPx.
+    /// Claude Code limits inline images to 2000px per side in multi-image responses.
+    private static func scaleDown(_ image: CGImage, maxPx: Int = 1900) -> CGImage {
+        let w = image.width, h = image.height
+        guard w > maxPx || h > maxPx else { return image }
+
+        let scale = Double(maxPx) / Double(max(w, h))
+        let newW = Int(Double(w) * scale)
+        let newH = Int(Double(h) * scale)
+
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: newW, height: newH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return image }
+
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: newW, height: newH))
+        return ctx.makeImage() ?? image
     }
 
     // MARK: - Layout Score
