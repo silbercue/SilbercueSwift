@@ -5,7 +5,7 @@ enum ScreenshotTools {
     static let tools: [Tool] = [
         Tool(
             name: "screenshot",
-            description: "Take a screenshot of a booted simulator. 3-tier: burst (~10ms, native) → stream (~20ms, ScreenCaptureKit) → safe (~320ms, simctl). Returns file path.",
+            description: "Take a screenshot of a booted simulator. Returns the image inline. 3-tier: burst (~10ms, native) → stream (~20ms, ScreenCaptureKit) → safe (~320ms, simctl).",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -13,13 +13,9 @@ enum ScreenshotTools {
                         "type": .string("string"),
                         "description": .string("Simulator UDID or 'booted'. Default: booted"),
                     ]),
-                    "output_path": .object([
-                        "type": .string("string"),
-                        "description": .string("Output file path. Default: /tmp/ss-screenshot.png"),
-                    ]),
                     "format": .object([
                         "type": .string("string"),
-                        "description": .string("Image format: png or jpeg. Default: png"),
+                        "description": .string("Image format: png or jpeg. Default: jpeg"),
                     ]),
                 ]),
             ])
@@ -28,65 +24,64 @@ enum ScreenshotTools {
 
     static func screenshot(_ args: [String: Value]?) async -> CallTool.Result {
         let sim = args?["simulator"]?.stringValue ?? "booted"
-        let format = args?["format"]?.stringValue ?? "png"
-        let outputPath = args?["output_path"]?.stringValue ?? "/tmp/ss-screenshot.\(format)"
+        let format = args?["format"]?.stringValue ?? "jpeg"
 
         let start = CFAbsoluteTimeGetCurrent()
 
-        // Fast path: ScreenCaptureKit (macOS 14+)
+        // Fast path: inline capture (macOS 14+)
         if #available(macOS 14.0, *) {
             do {
-                let result = try await FramebufferCapture.capture(
-                    simulator: sim,
-                    format: format,
-                    outputPath: outputPath
+                let result = try await FramebufferCapture.captureInline(
+                    simulator: sim, format: format
                 )
-                let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
-                return .ok(
-                    "Screenshot saved: \(result.path)\nFormat: \(format) | \(result.width)x\(result.height) | \(result.fileSize / 1024)KB | \(elapsed)ms (\(result.method))"
-                )
+                let elapsed = String(
+                    format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+                let mimeType = format.hasPrefix("jp") ? "image/jpeg" : "image/png"
+                return .init(content: [
+                    .image(
+                        data: result.base64, mimeType: mimeType, annotations: nil, _meta: nil),
+                    .text(
+                        text: "\(result.width)x\(result.height) | \(result.dataSize / 1024)KB | \(elapsed)ms (\(result.method))",
+                        annotations: nil, _meta: nil),
+                ])
             } catch {
                 // Fall through to simctl
-                let fallbackNote = "ScreenCaptureKit failed (\(error)), using simctl fallback"
-                return await simctlScreenshot(
-                    sim: sim, format: format, outputPath: outputPath,
-                    start: start, note: fallbackNote
-                )
+                return await simctlScreenshot(sim: sim, format: format, start: start)
             }
         }
 
-        // Slow path: simctl (macOS <14 or fallback)
-        return await simctlScreenshot(
-            sim: sim, format: format, outputPath: outputPath, start: start
-        )
+        return await simctlScreenshot(sim: sim, format: format, start: start)
     }
 
-    // MARK: - simctl Fallback
+    // MARK: - simctl Fallback (writes to file, returns path)
 
     private static func simctlScreenshot(
-        sim: String, format: String, outputPath: String,
-        start: CFAbsoluteTime, note: String? = nil
+        sim: String, format: String, start: CFAbsoluteTime
     ) async -> CallTool.Result {
+        let outputPath = "/tmp/ss-screenshot.\(format)"
         do {
             let result = try await Shell.xcrun(
                 "simctl", "io", sim, "screenshot",
                 "--type=\(format)",
                 outputPath
             )
-            let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            let elapsed = String(
+                format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 
             if result.succeeded {
-                let fileSize: String
-                if let attrs = try? FileManager.default.attributesOfItem(atPath: outputPath),
-                    let size = attrs[.size] as? Int
-                {
-                    fileSize = "\(size / 1024)KB"
-                } else {
-                    fileSize = "?"
+                // Read file and return inline
+                if let data = FileManager.default.contents(atPath: outputPath) {
+                    let mimeType = format.hasPrefix("jp") ? "image/jpeg" : "image/png"
+                    return .init(content: [
+                        .image(
+                            data: data.base64EncodedString(), mimeType: mimeType,
+                            annotations: nil, _meta: nil),
+                        .text(
+                            text: "\(data.count / 1024)KB | \(elapsed)ms (simctl)",
+                            annotations: nil, _meta: nil),
+                    ])
                 }
-                var msg = "Screenshot saved: \(outputPath)\nFormat: \(format) | Size: \(fileSize) | \(elapsed)ms (simctl)"
-                if let note { msg += "\nNote: \(note)" }
-                return .ok(msg)
+                return .ok("Screenshot saved: \(outputPath) | \(elapsed)ms (simctl)")
             }
             return .fail("Screenshot failed: \(result.stderr)")
         } catch {

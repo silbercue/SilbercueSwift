@@ -37,20 +37,19 @@ enum FramebufferCapture {
 
     // MARK: - Public API (3-tier fallback)
 
-    /// Capture Simulator screenshot. Tries: BURST → STREAM → throws (caller does SAFE).
+    /// Capture Simulator screenshot inline (no file I/O). Tries: BURST → STREAM → throws.
     @available(macOS 14.0, *)
-    static func capture(
+    static func captureInline(
         simulator: String = "booted",
-        format: String = "png",
-        quality: Double = 0.8,
-        outputPath: String
-    ) async throws -> (path: String, fileSize: Int, width: Int, height: Int, method: String) {
+        format: String = "jpeg",
+        quality: Double = 0.8
+    ) async throws -> (base64: String, dataSize: Int, width: Int, height: Int, method: String) {
         // Tier 3: BURST — CoreSimulator IOSurface (fastest, TCC-free)
         if CoreSimCapture.isAvailable {
             do {
-                let r = try CoreSimCapture.capture(
-                    simulator: simulator, format: format, quality: quality, outputPath: outputPath)
-                return (r.path, r.fileSize, r.width, r.height, "burst")
+                let cgImage = try CoreSimCapture.captureImage(simulator: simulator)
+                let data = try encodeImage(cgImage, format: format, quality: quality)
+                return (data.base64EncodedString(), data.count, cgImage.width, cgImage.height, "burst")
             } catch {
                 // Fall through to stream
             }
@@ -67,15 +66,21 @@ enum FramebufferCapture {
         do {
             try await SimulatorStream.shared.ensureRunning(simulator: simulator)
             let cgImage = try await SimulatorStream.shared.currentFrame()
-            try saveImage(cgImage, format: format, quality: quality, path: outputPath)
-            let fileSize =
-                (try? FileManager.default.attributesOfItem(atPath: outputPath)[.size] as? Int) ?? 0
-            return (outputPath, fileSize, cgImage.width, cgImage.height, "stream")
+            let data = try encodeImage(cgImage, format: format, quality: quality)
+            return (data.base64EncodedString(), data.count, cgImage.width, cgImage.height, "stream")
         } catch {
-            // Fallback: one-shot capture
-            let r = try await captureOneShot(
-                simulator: simulator, format: format, quality: quality, outputPath: outputPath)
-            return (r.path, r.fileSize, r.width, r.height, "oneshot")
+            // Fallback: one-shot
+            let window = try await findSimulatorWindow(simulator: simulator)
+            let filter = SCContentFilter(desktopIndependentWindow: window)
+            let config = SCStreamConfiguration()
+            config.width = Int(window.frame.width * 2)
+            config.height = Int(window.frame.height * 2)
+            config.showsCursor = false
+            config.pixelFormat = kCVPixelFormatType_32BGRA
+            let cgImage = try await SCScreenshotManager.captureImage(
+                contentFilter: filter, configuration: config)
+            let data = try encodeImage(cgImage, format: format, quality: quality)
+            return (data.base64EncodedString(), data.count, cgImage.width, cgImage.height, "oneshot")
         }
     }
 
@@ -151,6 +156,33 @@ enum FramebufferCapture {
     }
 
     // MARK: - Image Encoding
+
+    /// Encode CGImage to Data in memory (no file I/O).
+    static func encodeImage(
+        _ image: CGImage, format: String, quality: Double = 0.8
+    ) throws -> Data {
+        let uti: CFString =
+            (format == "jpeg" || format == "jpg")
+            ? "public.jpeg" as CFString
+            : "public.png" as CFString
+
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, uti, 1, nil) else {
+            throw CaptureError.encodingFailed
+        }
+
+        var properties: [CFString: Any] = [:]
+        if format.hasPrefix("jp") {
+            properties[kCGImageDestinationLossyCompressionQuality] = quality
+        }
+
+        CGImageDestinationAddImage(dest, image, properties as CFDictionary)
+
+        guard CGImageDestinationFinalize(dest) else {
+            throw CaptureError.encodingFailed
+        }
+        return data as Data
+    }
 
     static func saveImage(
         _ image: CGImage, format: String, quality: Double, path: String

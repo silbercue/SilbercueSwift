@@ -33,12 +33,8 @@ enum CoreSimCapture {
 
     // MARK: - Public API
 
-    static func capture(
-        simulator: String = "booted",
-        format: String = "png",
-        quality: Double = 0.8,
-        outputPath: String
-    ) throws -> (path: String, fileSize: Int, width: Int, height: Int) {
+    /// Capture framebuffer as CGImage (no encoding, no file I/O).
+    static func captureImage(simulator: String = "booted") throws -> CGImage {
         guard coreSimHandle != nil else {
             throw CaptureError.frameworkNotFound
         }
@@ -50,13 +46,7 @@ enum CoreSimCapture {
         guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else {
             throw CaptureError.conversionFailed
         }
-
-        try FramebufferCapture.saveImage(
-            cgImage, format: format, quality: quality, path: outputPath)
-
-        let fileSize =
-            (try? FileManager.default.attributesOfItem(atPath: outputPath)[.size] as? Int) ?? 0
-        return (outputPath, fileSize, cgImage.width, cgImage.height)
+        return cgImage
     }
 
     // MARK: - Service Context (cached)
