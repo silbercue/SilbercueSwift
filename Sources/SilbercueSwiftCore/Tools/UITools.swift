@@ -40,7 +40,7 @@ enum UITools {
                     "using": .object(["type": .string("string"), "description": .string("Strategy: 'accessibility id', 'class name', 'predicate string', 'class chain'")]),
                     "value": .object(["type": .string("string"), "description": .string("Search value")]),
                     "scroll": .object(["type": .string("boolean"), "description": .string("Auto-scroll to find off-screen elements. Default: false")]),
-                    "direction": .object(["type": .string("string"), "description": .string("Scroll direction: 'down', 'up', 'left', 'right'. Default: 'down'")]),
+                    "direction": .object(["type": .string("string"), "description": .string("Scroll direction: 'auto' (smart — detects boundaries, reverses automatically), 'down', 'up', 'left', 'right'. Default: 'auto'")]),
                     "max_swipes": .object(["type": .string("number"), "description": .string("Max scroll attempts. Default: 10")]),
                 ]),
                 "required": .array([.string("using"), .string("value")]),
@@ -133,6 +133,23 @@ enum UITools {
                     "duration_ms": .object(["type": .string("number"), "description": .string("Duration in ms. Default: 500")]),
                 ]),
                 "required": .array([.string("center_x"), .string("center_y"), .string("scale")]),
+            ])
+        ),
+        Tool(
+            name: "drag_and_drop",
+            description: "Drag from source to target. Works with element IDs, coordinates, or mixed. Smart defaults activate drag mode automatically — works for reorderable lists, Kanban boards, sliders, canvas dragging.",
+            inputSchema: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "source_element": .object(["type": .string("string"), "description": .string("Source element ID from find_element")]),
+                    "target_element": .object(["type": .string("string"), "description": .string("Target element ID from find_element")]),
+                    "from_x": .object(["type": .string("number"), "description": .string("Source X coordinate (alternative to source_element)")]),
+                    "from_y": .object(["type": .string("number"), "description": .string("Source Y coordinate")]),
+                    "to_x": .object(["type": .string("number"), "description": .string("Target X coordinate (alternative to target_element)")]),
+                    "to_y": .object(["type": .string("number"), "description": .string("Target Y coordinate")]),
+                    "press_duration_ms": .object(["type": .string("number"), "description": .string("Long-press duration to activate drag mode (ms). Default: 1000")]),
+                    "hold_duration_ms": .object(["type": .string("number"), "description": .string("Hold at target before drop (ms). Default: 300")]),
+                ]),
             ])
         ),
         Tool(
@@ -297,7 +314,7 @@ enum UITools {
             return .fail("Missing required: using, value")
         }
         let scroll = args?["scroll"]?.boolValue ?? false
-        let direction = args?["direction"]?.stringValue ?? "down"
+        let direction = args?["direction"]?.stringValue ?? "auto"
         let maxSwipes = args?["max_swipes"]?.intValue ?? 10
         do {
             let start = CFAbsoluteTimeGetCurrent()
@@ -414,6 +431,38 @@ enum UITools {
             return .ok("Pinch at (\(Int(cx)),\(Int(cy))) scale=\(scale)")
         } catch {
             return .fail("Pinch failed: \(error)")
+        }
+    }
+
+    static func dragAndDrop(_ args: [String: Value]?) async -> CallTool.Result {
+        let sourceElement = args?["source_element"]?.stringValue
+        let targetElement = args?["target_element"]?.stringValue
+        let fromX = args?["from_x"]?.numberValue
+        let fromY = args?["from_y"]?.numberValue
+        let toX = args?["to_x"]?.numberValue
+        let toY = args?["to_y"]?.numberValue
+        let pressDurationMs = args?["press_duration_ms"]?.intValue ?? 1000
+        let holdDurationMs = args?["hold_duration_ms"]?.intValue ?? 300
+
+        let hasSource = sourceElement != nil || (fromX != nil && fromY != nil)
+        let hasTarget = targetElement != nil || (toX != nil && toY != nil)
+        guard hasSource, hasTarget else {
+            return .fail("Need source (source_element OR from_x+from_y) and target (target_element OR to_x+to_y)")
+        }
+
+        do {
+            let start = CFAbsoluteTimeGetCurrent()
+            try await WDAClient.shared.dragAndDrop(
+                sourceElement: sourceElement, targetElement: targetElement,
+                fromX: fromX, fromY: fromY, toX: toX, toY: toY,
+                pressDurationMs: pressDurationMs, holdDurationMs: holdDurationMs
+            )
+            let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            let srcDesc = sourceElement ?? "(\(Int(fromX!)),\(Int(fromY!)))"
+            let tgtDesc = targetElement ?? "(\(Int(toX!)),\(Int(toY!)))"
+            return .ok("Dragged \(srcDesc) → \(tgtDesc) (\(elapsed)ms)")
+        } catch {
+            return .fail("Drag failed: \(error)")
         }
     }
 

@@ -456,7 +456,7 @@ actor WDAClient {
 
     // MARK: - Element Finding
 
-    func findElement(using strategy: String, value: String, scroll: Bool = false, direction: String = "down", maxSwipes: Int = 10) async throws -> (elementId: String, swipes: Int) {
+    func findElement(using strategy: String, value: String, scroll: Bool = false, direction: String = "auto", maxSwipes: Int = 10) async throws -> (elementId: String, swipes: Int) {
         let sid = try await ensureSession()
         var body: [String: Any] = ["using": strategy, "value": value]
         if scroll {
@@ -640,6 +640,28 @@ actor WDAClient {
             ]
         ]
         _ = try await jsonRequest(method: "POST", path: "/session/\(sid)/actions", body: actions)
+    }
+
+    func dragAndDrop(
+        sourceElement: String? = nil, targetElement: String? = nil,
+        fromX: Double? = nil, fromY: Double? = nil,
+        toX: Double? = nil, toY: Double? = nil,
+        pressDurationMs: Int = 1000, holdDurationMs: Int = 300,
+        velocity: Double? = nil
+    ) async throws {
+        let sid = try await ensureSession()
+        var body: [String: Any] = [
+            "pressDuration": Double(pressDurationMs) / 1000.0,
+            "holdDuration": Double(holdDurationMs) / 1000.0,
+        ]
+        if let se = sourceElement { body["sourceElementId"] = se }
+        if let te = targetElement { body["targetElementId"] = te }
+        if let x = fromX { body["fromX"] = x }
+        if let y = fromY { body["fromY"] = y }
+        if let x = toX { body["toX"] = x }
+        if let y = toY { body["toY"] = y }
+        if let v = velocity { body["velocity"] = v }
+        _ = try await jsonRequest(method: "POST", path: "/session/\(sid)/wda/drag", body: body)
     }
 
     // MARK: - Alert Handling

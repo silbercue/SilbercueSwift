@@ -57,6 +57,7 @@ public enum ToolRegistry {
         case "long_press":        return await UITools.longPress(args)
         case "swipe":             return await UITools.swipeAction(args)
         case "pinch":             return await UITools.pinchAction(args)
+        case "drag_and_drop":     return await UITools.dragAndDrop(args)
         case "type_text":         return await UITools.typeText(args)
         case "get_text":          return await UITools.getText(args)
         case "get_source":        return await UITools.getSource(args)
