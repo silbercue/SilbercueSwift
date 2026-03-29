@@ -44,31 +44,31 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 
 ### Where SilbercueSwift really shines
 
-> `killer feat` **Screenshots in 0.3s instead of 13s** — 44x faster visual feedback
+> `killer feat 🥇` **Screenshots in 0.3s instead of 13s** — 44x faster visual feedback
 
 SilbercueSwift reads the simulator framebuffer directly via CoreSimulator's IOSurface API. No simctl subprocess, no PNG round-trip. The agent gets a screenshot in 300ms. With the competition, it takes 13 seconds — long enough for the agent to lose context. Agents can take screenshots freely without penalty.
 
-> `killer feat` **Structured test results from xcresult bundles** — zero guesswork on failures
+> `killer feat 🥇` **Structured test results from xcresult bundles** — zero guesswork on failures
 
 When a test fails, the agent gets the error message, the exact file:line, a screenshot of the failure state, and optionally the console output — all parsed from Apple's `.xcresult` format. No guessing from 500 lines of xcodebuild stderr. This is the difference between "agent knows what broke" and "agent guesses what broke".
 
-> `killer feat` **Single binary, zero dependencies** — install in 10 seconds
+> `killer feat 🥇` **Single binary, zero dependencies** — install in 10 seconds
 
 `brew install silbercueswift` — done. 8.5MB native Swift binary. No Node.js, no npm, no Appium server, no Python, no Java. Cold start in ~50ms. The fastest way to get an iOS MCP server running.
 
-> `strong` **One call to dismiss all permission dialogs** — 3 alerts in 1 roundtrip
+> `strong 🥈` **One call to dismiss all permission dialogs** — 3 alerts in 1 roundtrip
 
 Every app shows 2–3 permission dialogs on first launch. Other servers require the agent to screenshot → find button → click, per dialog. `handle_alert(action: "accept_all")` clears them all in a single call, searching across SpringBoard, ContactsUI, and the active app.
 
-> `strong` **Drag & drop with element IDs** — 1 call instead of 3
+> `strong 🥈` **Drag & drop with element IDs** — 1 call instead of 3
 
 "Drag item A above item B" is a single call: `drag_and_drop(source_element: "el-0", target_element: "el-1")`. The competition only supports raw coordinates, forcing the agent to find both elements, extract their frames, and build a W3C Actions sequence — 3 calls minimum.
 
-> `strong` **Auto-scroll to off-screen elements** — no more manual swipe loops
+> `strong 🥈` **Auto-scroll to off-screen elements** — no more manual swipe loops
 
 `find_element(using: "accessibility id", value: "Save", scroll: true)` scrolls automatically until the element appears. Three fallback strategies ensure it works with UIKit, SwiftUI, and lazy-loaded lists. No guessing scroll direction.
 
-> `strong` **View hierarchy in 20ms** — 750x faster element inspection
+> `strong 🥈` **View hierarchy in 20ms** — 750x faster element inspection
 
 `get_source` returns the full UI tree in ~20ms. The competition takes 15 seconds. This makes element inspection practically free for agents.
 
