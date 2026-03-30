@@ -20,6 +20,7 @@ SilbercueSwiftMCP/.mcpregistry_registry_token
 _bmad-output/
 _bmad/
 scripts/
+!SilbercueSwiftMCP/scripts/build-combined.sh
 SwiftMCPTestHarness/
 SilbercueTestHarness/
 SilbercueWDA/
