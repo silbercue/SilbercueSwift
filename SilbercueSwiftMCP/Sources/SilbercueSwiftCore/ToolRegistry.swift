@@ -16,6 +16,7 @@ public enum ToolRegistry {
         tools += VisualTools.tools
         tools += MultiDeviceTools.tools
         tools += AccessibilityTools.tools
+        tools += LocalizationTools.tools
         return tools
     }
 
@@ -98,6 +99,9 @@ public enum ToolRegistry {
 
         // Accessibility
         case "accessibility_check":  return await AccessibilityTools.accessibilityCheck(args)
+
+        // Localization
+        case "localization_check":   return await LocalizationTools.localizationCheck(args)
 
         default:
             return .fail("Unknown tool: \(name)")
