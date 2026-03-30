@@ -28,19 +28,19 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Failure screenshots from xcresult | — | — | **Auto-exported** |
 | Code coverage per file | Basic | — | **Sorted, filterable** |
 | Build error diagnosis | stderr parsing | — | **xcresult JSON with file:line** |
-| Find element | — | Yes | **Yes** (+ auto-scroll ^Pro^) |
-| Tap / swipe / pinch | — | Yes | **Tap: Yes** / swipe, pinch ^Pro^ |
-| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** ^Pro^ |
-| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** ^Pro^ |
-| Alert handling | — | Single alert | **3-tier search + batch accept_all** ^Pro^ |
+| Find element | — | Yes | **Yes** (+ auto-scroll ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)) |
+| Tap / swipe / pinch | — | Yes | **Tap: Yes** / swipe, pinch ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
+| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
+| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
+| Alert handling | — | Single alert | **3-tier search + batch accept_all** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | iOS 18 ContactsUI dialog | — | — | **Supported** |
-| Screenshot latency | ~0.5s | ~500ms+ | **~15ms (30x)** ^Pro^ |
+| Screenshot latency | ~0.5s | ~500ms+ | **~15ms (30x)** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | View hierarchy | 15.5s | ~15s | **~20ms (750x)** |
 | Console log per failed test | — | — | **Optional** |
-| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** ^Pro^ |
+| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | Wait for log pattern | — | — | **Regex + timeout** |
-| Visual regression | — | — | **Baseline + pixel diff** ^Pro^ |
-| Multi-device check | — | — | **Dark Mode, Landscape, iPad** ^Pro^ |
+| Visual regression | — | — | **Baseline + pixel diff** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
+| Multi-device check | — | — | **Dark Mode, Landscape, iPad** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | Cross-platform (Android) | — | Yes | — |
 | Runtime | Node.js (~50MB) | Node.js + Appium (~200MB) | **Native Swift (8.5MB)** |
 | Cold start | ~400ms | ~1s | **~50ms** |
@@ -306,13 +306,13 @@ start_log_capture(subsystem: "com.apple.SwiftUI")
 |---|---|
 | `multi_device_check` | Run visual checks across multiple simulators (Dark Mode, Landscape, iPad) — returns layout scores |
 
-### Accessibility (1 tool) ^Pro^
+### Accessibility (1 tool) ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)
 
 | Tool | Description |
 |---|---|
 | `accessibility_check` | Render screens across Dynamic Type content size categories — detects truncation and layout issues |
 
-### Localization (1 tool) ^Pro^
+### Localization (1 tool) ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)
 
 | Tool | Description |
 |---|---|
