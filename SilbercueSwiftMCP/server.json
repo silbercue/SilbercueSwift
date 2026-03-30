@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.silbercue/silbercueswift",
+  "name": "io.github.Silbercue/silbercueswift",
   "title": "SilbercueSwift — iOS MCP Server",
-  "description": "iOS dev MCP: 55 tools, xcresult parsing, WDA UI automation, 15ms screenshots, coverage. Free + Pro tier.",
+  "description": "iOS MCP server: 55 tools, xcresult parsing, UI automation, 15ms screenshots.",
   "websiteUrl": "https://github.com/silbercue/SilbercueSwift",
   "repository": {
     "url": "https://github.com/silbercue/SilbercueSwift",
