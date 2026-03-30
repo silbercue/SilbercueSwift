@@ -15,6 +15,7 @@ public enum ToolRegistry {
         tools += TestTools.tools
         tools += VisualTools.tools
         tools += MultiDeviceTools.tools
+        tools += AccessibilityTools.tools
         return tools
     }
 
@@ -94,6 +95,9 @@ public enum ToolRegistry {
 
         // Multi-Device
         case "multi_device_check":   return await MultiDeviceTools.multiDeviceCheck(args)
+
+        // Accessibility
+        case "accessibility_check":  return await AccessibilityTools.accessibilityCheck(args)
 
         default:
             return .fail("Unknown tool: \(name)")
