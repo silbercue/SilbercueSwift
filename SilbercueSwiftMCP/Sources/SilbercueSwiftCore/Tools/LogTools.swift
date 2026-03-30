@@ -576,9 +576,11 @@ enum LogTools {
         // Pro gate: app mode requires Pro
         if mode == "app", !(await LicenseManager.shared.isPro) {
             return .fail(
-                "Log capture mode 'app' requires SilbercueSwift Pro.\n"
-                + "Free modes: 'smart' (default, recommended) or 'verbose' (all logs).\n"
-                + "Upgrade: \(LicenseManager.upgradeURL)")
+                "\"mode: app\" is a [PRO] feature.\n"
+                + "Captures only your app's logs + crashes — tight stream, zero noise.\n"
+                + "Free: 'smart' mode (default) or 'verbose'.\n\n"
+                + "Level up here → \(LicenseManager.upgradeURL)\n"
+                + "Then: silbercueswift activate <YOUR-KEY>")
         }
 
         let (logArgs, note) = await buildLogArgs(
@@ -629,10 +631,13 @@ enum LogTools {
         // Pro gate: custom topic filtering requires Pro
         let requestedCustomTopics = includeTopics.subtracting(["app", "crashes"])
         if !requestedCustomTopics.isEmpty, !(await LicenseManager.shared.isPro) {
+            let topics = requestedCustomTopics.sorted().joined(separator: ", ")
             return .fail(
-                "Topic filtering (\(requestedCustomTopics.sorted().joined(separator: ", "))) requires SilbercueSwift Pro.\n"
-                + "Free tier shows: app + crashes only.\n"
-                + "Upgrade: \(LicenseManager.upgradeURL)")
+                "Topic filtering is a [PRO] feature.\n"
+                + "Shows only what matters — \(topics) — on demand.\n"
+                + "Free: app + crashes (already 90% noise-free).\n\n"
+                + "Level up here → \(LicenseManager.upgradeURL)\n"
+                + "Then: silbercueswift activate <YOUR-KEY>")
         }
 
         // Get session info for topic categorization

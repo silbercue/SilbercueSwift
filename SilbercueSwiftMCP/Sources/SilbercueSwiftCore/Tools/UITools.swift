@@ -83,7 +83,7 @@ enum UITools {
         ),
         Tool(
             name: "type_text",
-            description: "Type text into the currently focused element or a specified element.",
+            description: "Type text into a specified element, or auto-find the first text input (TextField, TextView, or SearchField) on screen.",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -188,9 +188,11 @@ enum UITools {
             // Pro gate: batch alert handling
             if !(await LicenseManager.shared.isPro) {
                 return .fail(
-                    "Batch alert handling (accept_all/dismiss_all) requires SilbercueSwift Pro.\n"
-                    + "Free alternative: use action='accept' or action='dismiss' for individual alerts.\n"
-                    + "Upgrade: \(LicenseManager.upgradeURL)")
+                    "\"accept_all\" is a [PRO] feature.\n"
+                    + "Clears all permission dialogs in one sweep — no more screenshot-find-click loops.\n"
+                    + "Free: action='accept' handles them one by one.\n\n"
+                    + "Level up here → \(LicenseManager.upgradeURL)\n"
+                    + "Then: silbercueswift activate <YOUR-KEY>")
             }
             do {
                 let result = try await WDAClient.shared.handleAllAlerts(accept: true)
@@ -210,9 +212,11 @@ enum UITools {
             // Pro gate: batch alert handling
             if !(await LicenseManager.shared.isPro) {
                 return .fail(
-                    "Batch alert handling (accept_all/dismiss_all) requires SilbercueSwift Pro.\n"
-                    + "Free alternative: use action='accept' or action='dismiss' for individual alerts.\n"
-                    + "Upgrade: \(LicenseManager.upgradeURL)")
+                    "\"dismiss_all\" is a [PRO] feature.\n"
+                    + "Clears all permission dialogs in one sweep — no more screenshot-find-click loops.\n"
+                    + "Free: action='dismiss' handles them one by one.\n\n"
+                    + "Level up here → \(LicenseManager.upgradeURL)\n"
+                    + "Then: silbercueswift activate <YOUR-KEY>")
             }
             do {
                 let result = try await WDAClient.shared.handleAllAlerts(accept: false)
@@ -312,9 +316,11 @@ enum UITools {
         // Pro gate: scroll:true requires Pro
         if scroll, !(await LicenseManager.shared.isPro) {
             return .fail(
-                "scroll:true requires SilbercueSwift Pro.\n"
-                + "Free alternative: use swipe to manually scroll, then find_element without scroll.\n"
-                + "Upgrade: \(LicenseManager.upgradeURL)")
+                "\"scroll: true\" is a [PRO] feature.\n"
+                + "SmartScroll finds off-screen elements automatically — no manual swipe loops.\n"
+                + "Free: scroll manually, then find_element without scroll.\n\n"
+                + "Level up here → \(LicenseManager.upgradeURL)\n"
+                + "Then: silbercueswift activate <YOUR-KEY>")
         }
 
         do {
@@ -391,9 +397,23 @@ enum UITools {
                 }
                 try await WDAClient.shared.setValue(elementId: eid, text: text)
             } else {
-                // Find first text field and type into it
+                // Find first text input element (TextField, TextView, or SearchField)
                 _ = try await WDAClient.shared.ensureSession()
-                let (eid, _) = try await WDAClient.shared.findElement(using: "class name", value: "XCUIElementTypeTextField")
+                let textInputTypes = [
+                    "XCUIElementTypeTextField",
+                    "XCUIElementTypeTextView",
+                    "XCUIElementTypeSearchField",
+                ]
+                var foundId: String?
+                for typeName in textInputTypes {
+                    if let (eid, _) = try? await WDAClient.shared.findElement(using: "class name", value: typeName) {
+                        foundId = eid
+                        break
+                    }
+                }
+                guard let eid = foundId else {
+                    return .fail("No text input found on screen (searched TextField, TextView, SearchField). Tap a text field first, or pass element_id.")
+                }
                 if clearFirst {
                     try await WDAClient.shared.clearElement(elementId: eid)
                 }
