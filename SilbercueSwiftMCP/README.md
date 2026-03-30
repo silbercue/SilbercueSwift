@@ -1,6 +1,8 @@
 # SilbercueSwift
 
 [![GitHub Release](https://img.shields.io/github/v/release/silbercue/SilbercueSwift)](https://github.com/silbercue/SilbercueSwift/releases)
+[![Free — 42 tools](https://img.shields.io/badge/Free-42_tools-brightgreen)](https://github.com/silbercue/SilbercueSwift#free-vs-pro)
+[![Pro available](https://img.shields.io/badge/Pro-55_tools-blueviolet)](https://polar.sh/silbercueswift)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-published-green)](https://registry.modelcontextprotocol.io)
 [![Platform](https://img.shields.io/badge/platform-macOS_13%2B-blue)]()
@@ -28,26 +30,26 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Build error diagnosis | stderr parsing | — | **xcresult JSON with file:line** |
 | Find element | — | Yes | **Yes + auto-scroll** |
 | Tap / swipe / pinch | — | Yes | **Yes** |
-| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** |
-| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** |
-| Alert handling | — | Single alert | **3-tier search + batch accept_all** |
+| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** ^Pro^ |
+| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** ^Pro^ |
+| Alert handling | — | Single alert | **3-tier search + batch accept_all** ^Pro^ |
 | iOS 18 ContactsUI dialog | — | — | **Supported** |
-| Screenshot latency | ~0.5s | ~500ms+ | **~15ms (30x)** |
+| Screenshot latency | ~0.5s | ~500ms+ | **~15ms (30x)** ^Pro^ |
 | View hierarchy | 15.5s | ~15s | **~20ms (750x)** |
 | Console log per failed test | — | — | **Optional** |
-| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** |
+| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** ^Pro^ |
 | Wait for log pattern | — | — | **Regex + timeout** |
-| Visual regression | — | — | **Baseline + pixel diff** |
-| Multi-device check | — | — | **Dark Mode, Landscape, iPad** |
+| Visual regression | — | — | **Baseline + pixel diff** ^Pro^ |
+| Multi-device check | — | — | **Dark Mode, Landscape, iPad** ^Pro^ |
 | Cross-platform (Android) | — | Yes | — |
 | Runtime | Node.js (~50MB) | Node.js + Appium (~200MB) | **Native Swift (8.5MB)** |
 | Cold start | ~400ms | ~1s | **~50ms** |
 
 ### Where SilbercueSwift really shines
 
-> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots in 15ms instead of 500ms** — 30x faster visual feedback
+> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots in 15ms instead of 500ms** — 30x faster visual feedback ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)
 
-SilbercueSwift reads the simulator framebuffer directly via CoreSimulator's IOSurface API. No simctl subprocess, no PNG round-trip. The agent gets a screenshot in ~15ms. With the competition, it takes ~500ms. Agents can take screenshots freely without penalty.
+SilbercueSwift reads the simulator framebuffer directly via CoreSimulator's IOSurface API. No simctl subprocess, no PNG round-trip. The agent gets a screenshot in ~15ms. With the competition, it takes ~500ms. Agents can take screenshots freely without penalty. Free tier uses simctl (~310ms) — still faster than most alternatives.
 
 > ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Structured test results from xcresult bundles** — zero guesswork on failures
 
@@ -113,34 +115,30 @@ Or for global availability, add to `~/.claude/.mcp.json`.
 
 ## Free vs Pro
 
-SilbercueSwift is free to use with 42 tools. Upgrade to **Pro** for 13 additional tools and premium features.
+SilbercueSwift ships 42 tools for free — build, test, simulate, automate UI, capture logs, and take screenshots. No time limit, no signup.
 
-| Feature | Free | Pro (12 EUR/mo) |
+Pro adds 13 tools and faster internals for teams and power users who need the full picture.
+
+| | Free | Pro |
 |---|---|---|
-| Build, test, sim management | 42 tools | **55 tools** |
-| Screenshot | simctl (~310ms) | **IOSurface (~15ms, 20x faster)** |
+| Build, test, sim management | 42 tools | 55 tools |
+| Screenshot | simctl (~310ms) | IOSurface (~15ms) |
 | Structured test results (xcresult) | Yes | Yes |
 | Find / click / tap / type | Yes | Yes |
-| Scroll to element (auto-scroll) | — | **Yes** |
-| Alert handling (accept/dismiss) | Single | **Batch accept_all / dismiss_all** |
-| Log capture & reading | Smart + verbose mode | **+ App mode, topic filtering** |
-| Visual regression | Yes | Yes |
-| Multi-device check | Yes | Yes |
-| Drag & drop | — | **Yes** |
-| Swipe / pinch / long press | — | **Yes** |
-| Localization check | — | **Yes** |
-| Accessibility check | — | **Yes** |
-| Console capture | Yes | Yes |
-| Git tools | Yes | Yes |
+| Alert handling | Single accept/dismiss | + Batch accept_all / dismiss_all |
+| Log capture | Smart + verbose | + App mode, topic filtering |
+| Console capture, git tools | Yes | Yes |
+| Scroll to element | — | Auto-scroll (3-tier) |
+| Visual regression | — | Baseline + pixel diff |
+| Multi-device check | — | Dark Mode, Landscape, iPad |
+| Accessibility check | — | Dynamic Type rendering |
+| Localization check | — | Multi-language + RTL |
+| Drag & drop, swipe, pinch | — | Yes |
 
-**[Get SilbercueSwift Pro →](https://polar.sh/silbercueswift)**
+Pro costs 12 EUR/month. [Get a license on Polar.sh](https://polar.sh/silbercueswift), then:
 
 ```bash
-# Activate your license
 silbercueswift activate <YOUR-LICENSE-KEY>
-
-# Check status
-silbercueswift status
 ```
 
 ## 55 Tools in 13 Categories
@@ -430,7 +428,9 @@ No Node.js. No Python. No Appium server. No Selenium. One binary.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+The core binary and all 42 free tools are **MIT licensed** — see [LICENSE](LICENSE). Use them however you want, commercially or otherwise.
+
+Pro tools (13 additional tools + IOSurface screenshots) require a [paid license](https://polar.sh/silbercueswift). The license validation code (`LicenseManager.swift`) is included in the source for transparency — you can see exactly what it checks and when.
 
 ## Contributing
 

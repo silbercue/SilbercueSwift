@@ -1,16 +1,18 @@
 # SilbercueSwift
 
 [![GitHub Release](https://img.shields.io/github/v/release/silbercue/SilbercueSwift)](https://github.com/silbercue/SilbercueSwift/releases)
+[![Free — 42 tools](https://img.shields.io/badge/Free-42_tools-brightgreen)](https://github.com/silbercue/SilbercueSwift#free-vs-pro)
+[![Pro available](https://img.shields.io/badge/Pro-55_tools-blueviolet)](https://polar.sh/silbercueswift)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-published-green)](https://registry.modelcontextprotocol.io)
 [![Platform](https://img.shields.io/badge/platform-macOS_13%2B-blue)]()
 [![Swift 6.0](https://img.shields.io/badge/Swift-6.0-orange)](https://swift.org)
 
-The fastest, most complete MCP server for iOS development. One Swift binary, 51 tools, zero dependencies. **SilbercueSwift has the most complete toolset of any alternative out there.**
+The fastest, most complete MCP server for iOS development. One Swift binary, 55 tools, zero dependencies. **SilbercueSwift has the most complete toolset of any alternative out there.**
 
 Built for [Claude Code](https://claude.ai/claude-code), [Cursor](https://cursor.sh), and any MCP-compatible AI agent.
 
-> **Looking for an alternative to existing iOS MCP servers?** SilbercueSwift covers the full feature set of both XcodeBuildMCP and Appium-MCP in a single binary — plus xcresult parsing, direct WDA UI automation, code coverage, and 44x faster screenshots. [See comparison below](#comparison-with-other-mcp-servers).
+> **Looking for an alternative to existing iOS MCP servers?** SilbercueSwift covers the full feature set of both XcodeBuildMCP and Appium-MCP in a single binary — plus xcresult parsing, direct WDA UI automation, code coverage, and 30x faster screenshots. [See comparison below](#comparison-with-other-mcp-servers).
 
 ## Why SilbercueSwift?
 
@@ -28,26 +30,26 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Build error diagnosis | stderr parsing | — | **xcresult JSON with file:line** |
 | Find element | — | Yes | **Yes + auto-scroll** |
 | Tap / swipe / pinch | — | Yes | **Yes** |
-| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** |
-| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** |
-| Alert handling | — | Single alert | **3-tier search + batch accept_all** |
+| Drag & drop | — | Coordinates only (3 calls) | **Element-to-element (1 call)** ^Pro^ |
+| Scroll to element | — | Manual swipe loop | **3-tier auto-scroll (1 call)** ^Pro^ |
+| Alert handling | — | Single alert | **3-tier search + batch accept_all** ^Pro^ |
 | iOS 18 ContactsUI dialog | — | — | **Supported** |
-| Screenshot latency | 13.2s | ~500ms+ | **0.3s (44x)** |
+| Screenshot latency | ~0.5s | ~500ms+ | **~15ms (30x)** ^Pro^ |
 | View hierarchy | 15.5s | ~15s | **~20ms (750x)** |
 | Console log per failed test | — | — | **Optional** |
-| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** |
+| Log filtering | Subsystem only (bundleId required) | — | **Topic-filtered: agent reads only what matters, 90% fewer tokens** ^Pro^ |
 | Wait for log pattern | — | — | **Regex + timeout** |
-| Visual regression | — | — | **Baseline + pixel diff** |
-| Multi-device check | — | — | **Dark Mode, Landscape, iPad** |
+| Visual regression | — | — | **Baseline + pixel diff** ^Pro^ |
+| Multi-device check | — | — | **Dark Mode, Landscape, iPad** ^Pro^ |
 | Cross-platform (Android) | — | Yes | — |
 | Runtime | Node.js (~50MB) | Node.js + Appium (~200MB) | **Native Swift (8.5MB)** |
 | Cold start | ~400ms | ~1s | **~50ms** |
 
 ### Where SilbercueSwift really shines
 
-> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots in 0.3s instead of 13s** — 44x faster visual feedback
+> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots in 15ms instead of 500ms** — 30x faster visual feedback ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)
 
-SilbercueSwift reads the simulator framebuffer directly via CoreSimulator's IOSurface API. No simctl subprocess, no PNG round-trip. The agent gets a screenshot in 300ms. With the competition, it takes 13 seconds — long enough for the agent to lose context. Agents can take screenshots freely without penalty.
+SilbercueSwift reads the simulator framebuffer directly via CoreSimulator's IOSurface API. No simctl subprocess, no PNG round-trip. The agent gets a screenshot in ~15ms. With the competition, it takes ~500ms. Agents can take screenshots freely without penalty. Free tier uses simctl (~310ms) — still faster than most alternatives.
 
 > ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Structured test results from xcresult bundles** — zero guesswork on failures
 
@@ -111,7 +113,35 @@ Add to your `.mcp.json`:
 
 Or for global availability, add to `~/.claude/.mcp.json`.
 
-## 51 Tools in 11 Categories
+## Free vs Pro
+
+SilbercueSwift ships 42 tools for free — build, test, simulate, automate UI, capture logs, and take screenshots. No time limit, no signup.
+
+Pro adds 13 tools and faster internals for teams and power users who need the full picture.
+
+| | Free | Pro |
+|---|---|---|
+| Build, test, sim management | 42 tools | 55 tools |
+| Screenshot | simctl (~310ms) | IOSurface (~15ms) |
+| Structured test results (xcresult) | Yes | Yes |
+| Find / click / tap / type | Yes | Yes |
+| Alert handling | Single accept/dismiss | + Batch accept_all / dismiss_all |
+| Log capture | Smart + verbose | + App mode, topic filtering |
+| Console capture, git tools | Yes | Yes |
+| Scroll to element | — | Auto-scroll (3-tier) |
+| Visual regression | — | Baseline + pixel diff |
+| Multi-device check | — | Dark Mode, Landscape, iPad |
+| Accessibility check | — | Dynamic Type rendering |
+| Localization check | — | Multi-language + RTL |
+| Drag & drop, swipe, pinch | — | Yes |
+
+Pro costs 12 EUR/month. [Get a license on Polar.sh](https://polar.sh/silbercueswift), then:
+
+```bash
+silbercueswift activate <YOUR-LICENSE-KEY>
+```
+
+## 55 Tools in 13 Categories
 
 ### Build (5 tools)
 
@@ -193,7 +223,7 @@ These capabilities go beyond what other iOS MCP servers currently offer.
 
 | Tool | Latency |
 |---|---|
-| `screenshot` | **0.3s** (3-tier: CoreSimulator IOSurface → ScreenCaptureKit → simctl) |
+| `screenshot` | **~15ms** (3-tier: CoreSimulator IOSurface → ScreenCaptureKit → simctl) |
 
 ### Logs (4 tools)
 
@@ -347,11 +377,11 @@ test_coverage(project: "MyApp.xcodeproj", scheme: "MyApp", min_coverage: 80)
 
 ## Benchmarks
 
-Measured on M3 MacBook Pro, iOS 18.2 Simulator:
+Measured on M3 MacBook Pro, iOS 26.4 Simulator:
 
 | Action | Konkurrenz (best of) | SilbercueSwift |
 |---|---|---|
-| Screenshot | 13.2s | **0.3s** (44x) |
+| Screenshot | ~0.5s | **~15ms** (30x) |
 | Find element | ~500ms | **~100ms** (5x) |
 | Click element | ~500ms | **~400ms** |
 | View hierarchy | ~15s | **~20ms** (750x) |
@@ -398,7 +428,9 @@ No Node.js. No Python. No Appium server. No Selenium. One binary.
 
 ## License
 
-MIT License — see [LICENSE](LICENSE).
+The core binary and all 42 free tools are **MIT licensed** — see [LICENSE](LICENSE). Use them however you want, commercially or otherwise.
+
+Pro tools (13 additional tools + IOSurface screenshots) require a [paid license](https://polar.sh/silbercueswift). The license validation code (`LicenseManager.swift`) is included in the source for transparency — you can see exactly what it checks and when.
 
 ## Contributing
 
