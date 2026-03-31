@@ -343,20 +343,20 @@ enum UITools {
 
         do {
             let start = CFAbsoluteTimeGetCurrent()
-            let (elementId, swipes) = try await WDAClient.shared.findElement(
-                using: using, value: value, scroll: scroll, direction: direction, maxSwipes: maxSwipes
+            let binding = try await UIActions.find(
+                using: using, value: value, scroll: scroll,
+                direction: direction, maxSwipes: maxSwipes
             )
-            // Fetch element rect (best-effort — don't fail if rect unavailable)
             let rectStr: String
-            if let rect = try? await WDAClient.shared.getElementRect(elementId: elementId) {
+            if let rect = binding.rect {
                 rectStr = " — frame: \(rect.description), center: (\(rect.centerX), \(rect.centerY))"
             } else {
                 rectStr = ""
             }
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
-            var msg = "Element found: \(elementId) (\(elapsed)ms)\(rectStr)"
-            if swipes > 0 {
-                msg += " — scrolled \(swipes) time(s) \(direction)"
+            var msg = "Element found: \(binding.elementId) (\(elapsed)ms)\(rectStr)"
+            if binding.swipes > 0 {
+                msg += " — scrolled \(binding.swipes) time(s) \(direction)"
             }
             return .ok(msg)
         } catch {
@@ -402,7 +402,7 @@ enum UITools {
         }
         do {
             let start = CFAbsoluteTimeGetCurrent()
-            try await WDAClient.shared.click(elementId: elementId)
+            try await UIActions.click(elementId: elementId)
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
             return await .okWithScreenshot("Clicked element \(elementId) (\(elapsed)ms)", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
@@ -417,7 +417,7 @@ enum UITools {
         }
         do {
             let start = CFAbsoluteTimeGetCurrent()
-            try await WDAClient.shared.tap(x: x, y: y)
+            try await UIActions.tap(x: x, y: y)
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
             return await .okWithScreenshot("Tapped at (\(Int(x)), \(Int(y))) (\(elapsed)ms)", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
@@ -433,34 +433,7 @@ enum UITools {
         let clearFirst = args?["clear_first"]?.boolValue ?? false
 
         do {
-            if let eid = elementId {
-                if clearFirst {
-                    try await WDAClient.shared.clearElement(elementId: eid)
-                }
-                try await WDAClient.shared.setValue(elementId: eid, text: text)
-            } else {
-                // Find first text input element (TextField, TextView, or SearchField)
-                _ = try await WDAClient.shared.ensureSession()
-                let textInputTypes = [
-                    "XCUIElementTypeTextField",
-                    "XCUIElementTypeTextView",
-                    "XCUIElementTypeSearchField",
-                ]
-                var foundId: String?
-                for typeName in textInputTypes {
-                    if let (eid, _) = try? await WDAClient.shared.findElement(using: "class name", value: typeName) {
-                        foundId = eid
-                        break
-                    }
-                }
-                guard let eid = foundId else {
-                    return .fail("No text input found on screen (searched TextField, TextView, SearchField). Tap a text field first, or pass element_id.")
-                }
-                if clearFirst {
-                    try await WDAClient.shared.clearElement(elementId: eid)
-                }
-                try await WDAClient.shared.setValue(elementId: eid, text: text)
-            }
+            try await UIActions.typeText(text, elementId: elementId, clearFirst: clearFirst)
             return await .okWithScreenshot("Typed '\(text)'", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
             return .fail("Type failed: \(error)")
@@ -472,7 +445,7 @@ enum UITools {
             return .fail("Missing required: element_id")
         }
         do {
-            let text = try await WDAClient.shared.getText(elementId: elementId)
+            let text = try await UIActions.getText(elementId: elementId)
             return .ok("Text: \(text)")
         } catch {
             return .fail("Get text failed: \(error)")
@@ -496,45 +469,20 @@ enum UITools {
         }
 
         let start = CFAbsoluteTimeGetCurrent()
-        var steps: [String] = []
 
         do {
-            // Step 1: Back navigation if requested
-            if back {
-                // Find back button via get_source — instant (0.1s), no WDA implicit wait.
-                // iOS 26 SwiftUI back buttons carry the parent screen's label, not "Back",
-                // so findElement by label/id is unreliable. Instead, walk the source tree
-                // and find the first Button inside a NavigationBar.
-                guard let center = await findBackButtonCenter() else {
-                    return .fail("Navigate failed: no back button found in NavigationBar")
-                }
-                try await WDAClient.shared.tap(x: Double(center.x), y: Double(center.y))
-                try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
-                steps.append("back")
-            }
-
-            // Step 2: Find target — single predicate covering accessibility id and label
-            let escapedTarget = target.replacingOccurrences(of: "'", with: "\\'")
-            let (elementId, swipes) = try await WDAClient.shared.findElement(
-                using: "predicate string",
-                value: "identifier == '\(escapedTarget)' OR label == '\(escapedTarget)'",
-                scroll: scroll, direction: "auto", maxSwipes: scroll ? 10 : 0
+            let result = try await UIActions.navigate(
+                target: target, back: back, scroll: scroll, settleMs: settleMs
             )
 
-            // Step 3: Click
-            try await WDAClient.shared.click(elementId: elementId)
-
-            // Step 4: Settle
-            try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
-
-            // Step 5: Screenshot
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
             var scrollNote = ""
-            if swipes > 0 { scrollNote = ", scrolled \(swipes)x" }
-            let text = "Navigated to '\(target)' (\(elementId), \(elapsed)ms\(scrollNote)). [\(steps.isEmpty ? "" : steps.joined(separator: " → ") + " → ")tap → settle \(settleMs)ms]"
+            if result.swipes > 0 { scrollNote = ", scrolled \(result.swipes)x" }
+            let stepsStr = result.steps.isEmpty ? "" : result.steps.joined(separator: " → ") + " → "
+            let text = "Navigated to '\(target)' (\(result.elementId), \(elapsed)ms\(scrollNote)). [\(stepsStr)tap → settle \(settleMs)ms]"
 
             var content: [Tool.Content] = [.text(text: text, annotations: nil, _meta: nil)]
-            if let img = await ActionScreenshot.capture() {
+            if let img = result.screenshot {
                 content.append(img)
             }
             return .init(content: content)
@@ -544,10 +492,10 @@ enum UITools {
             let cleanErr = errStr.contains("not found")
                 ? "Element '\(target)' not found on current screen"
                 : errStr
-            if steps.isEmpty {
-                return .fail("Navigate failed (\(elapsed)ms): \(cleanErr)")
+            if back {
+                return .fail("Navigate failed after [back] (\(elapsed)ms): \(cleanErr)")
             }
-            return .fail("Navigate failed after [\(steps.joined(separator: " → "))] (\(elapsed)ms): \(cleanErr)")
+            return .fail("Navigate failed (\(elapsed)ms): \(cleanErr)")
         }
     }
 
@@ -555,41 +503,14 @@ enum UITools {
         let format = args?["format"]?.stringValue ?? "json"
         do {
             let start = CFAbsoluteTimeGetCurrent()
-            // For pruned: always fetch json from WDA, then filter client-side
-            let wdaFormat = format == "pruned" ? "json" : format
-            let source = try await WDAClient.shared.getSource(format: wdaFormat)
-            let elapsed = String(format: "%.1f", CFAbsoluteTimeGetCurrent() - start)
-            // Cache screen info
-            let elementCount = source.components(separatedBy: "\"type\"").count - 1
-            Task { guard let udid = await SimStateCache.currentUDID() else { return }
-                await SimStateCache.shared.recordScreenInfo(udid: udid, elementCount: max(elementCount, 1), summary: format) }
 
             if format == "pruned" {
-                guard let data = source.data(using: .utf8),
-                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                    return .fail("Pruned mode: failed to parse JSON source")
-                }
-                // WDA wraps the tree as a JSON string inside "value"
-                let tree: [String: Any]
-                if let valueStr = json["value"] as? String,
-                   let valueData = valueStr.data(using: .utf8),
-                   let parsed = try? JSONSerialization.jsonObject(with: valueData) as? [String: Any] {
-                    tree = parsed
-                } else if let valueDict = json["value"] as? [String: Any] {
-                    tree = valueDict
-                } else {
-                    tree = json
-                }
-                var elements: [[String: Any]] = []
-                pruneTree(tree, into: &elements)
-                // Deduplicate: remove child StaticText if parent Button has same label
-                elements = deduplicateLabels(elements)
-                // Sort by y-position (top to bottom)
-                elements.sort {
-                    let y0 = ($0["frame"] as? [String: Any])?["y"] as? Int ?? 0
-                    let y1 = ($1["frame"] as? [String: Any])?["y"] as? Int ?? 0
-                    return y0 < y1
-                }
+                let elements = try await UIActions.getSourcePruned()
+                let elementCount = elements.count
+                let elapsed = String(format: "%.1f", CFAbsoluteTimeGetCurrent() - start)
+                // Cache screen info
+                Task { guard let udid = await SimStateCache.currentUDID() else { return }
+                    await SimStateCache.shared.recordScreenInfo(udid: udid, elementCount: max(elementCount, 1), summary: format) }
                 // One element per line for LLM readability
                 let lines = elements.compactMap { elem -> String? in
                     guard let d = try? JSONSerialization.data(withJSONObject: elem, options: [.sortedKeys]),
@@ -601,6 +522,11 @@ enum UITools {
             }
 
             // Full mode: existing behavior
+            let source = try await WDAClient.shared.getSource(format: format)
+            let elapsed = String(format: "%.1f", CFAbsoluteTimeGetCurrent() - start)
+            let elementCount = source.components(separatedBy: "\"type\"").count - 1
+            Task { guard let udid = await SimStateCache.currentUDID() else { return }
+                await SimStateCache.shared.recordScreenInfo(udid: udid, elementCount: max(elementCount, 1), summary: format) }
             let truncated = source.count > 50000 ? String(source.prefix(50000)) + "\n... [truncated]" : source
             return .ok("View hierarchy (\(elapsed)s, \(source.count) chars):\n\(truncated)")
         } catch {
@@ -608,194 +534,5 @@ enum UITools {
         }
     }
 
-    // MARK: - Pruned Mode Helpers
-
-    /// Types that are always kept in pruned output (interactive/structural).
-    /// Find the back button center by walking the WDA source tree.
-    /// Returns center coordinates of the first Button inside a NavigationBar, or nil.
-    /// Uses get_source (0.1s) instead of findElement (avoids 6-18s WDA implicit wait).
-    private static func findBackButtonCenter() async -> (x: Int, y: Int)? {
-        guard let source = try? await WDAClient.shared.getSource(format: "json"),
-              let data = source.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return nil
-        }
-        // WDA wraps tree as JSON string in "value"
-        let tree: [String: Any]
-        if let vs = json["value"] as? String,
-           let vd = vs.data(using: .utf8),
-           let parsed = try? JSONSerialization.jsonObject(with: vd) as? [String: Any] {
-            tree = parsed
-        } else {
-            tree = json["value"] as? [String: Any] ?? json
-        }
-        // Walk tree: find NavigationBar, then its first Button descendant
-        return findFirstButtonInNavBar(tree)
-    }
-
-    /// Recursively find a NavigationBar node, then return the center of its first Button child.
-    private static func findFirstButtonInNavBar(_ node: [String: Any]) -> (x: Int, y: Int)? {
-        let rawType = node["type"] as? String ?? ""
-        let type = rawType.hasPrefix("XCUIElementType") ? String(rawType.dropFirst("XCUIElementType".count)) : rawType
-
-        if type == "NavigationBar" {
-            // Found NavBar — now find first Button descendant
-            if let btn = findFirstButton(in: node) {
-                return btn
-            }
-        }
-        // Keep searching children
-        if let children = node["children"] as? [[String: Any]] {
-            for child in children {
-                if let result = findFirstButtonInNavBar(child) {
-                    return result
-                }
-            }
-        }
-        return nil
-    }
-
-    /// Find the first Button descendant and return its frame center.
-    private static func findFirstButton(in node: [String: Any]) -> (x: Int, y: Int)? {
-        let rawType = node["type"] as? String ?? ""
-        let type = rawType.hasPrefix("XCUIElementType") ? String(rawType.dropFirst("XCUIElementType".count)) : rawType
-
-        if type == "Button", let frame = node["frame"] as? [String: Any] {
-            func intVal(_ key: String) -> Int? {
-                if let v = frame[key] as? Int { return v }
-                if let v = frame[key] as? Double { return Int(v) }
-                return nil
-            }
-            if let x = intVal("x"), let y = intVal("y"), let w = intVal("width"), let h = intVal("height") {
-                return (x: x + w / 2, y: y + h / 2)
-            }
-        }
-        if let children = node["children"] as? [[String: Any]] {
-            for child in children {
-                if let result = findFirstButton(in: child) {
-                    return result
-                }
-            }
-        }
-        return nil
-    }
-
-    private static let interactableTypes: Set<String> = [
-        "Button", "TextField", "SecureTextField", "TextView", "StaticText",
-        "Switch", "Slider", "Cell", "NavigationBar", "Alert", "Sheet",
-        "SearchField", "Picker", "TabBar", "Link",
-    ]
-
-    /// Recursively walk the WDA view tree, collecting elements that have
-    /// meaningful info (label/identifier/value) or are interactable types.
-    /// Output is a flat array — no nesting.
-    private static func pruneTree(_ node: [String: Any], into result: inout [[String: Any]]) {
-        let rawType = node["type"] as? String ?? ""
-        let type = rawType.hasPrefix("XCUIElementType")
-            ? String(rawType.dropFirst("XCUIElementType".count))
-            : rawType
-
-        let label = (node["label"] as? String) ?? ""
-        let identifier = (node["identifier"] as? String) ?? ""
-        let rawValue = node["value"]
-        let valueStr: String? = {
-            if rawValue is NSNull || rawValue == nil { return nil }
-            if let s = rawValue as? String, !s.isEmpty { return s }
-            if let n = rawValue as? NSNumber { return n.stringValue }
-            return nil
-        }()
-
-        let isInteractable = interactableTypes.contains(type)
-        let hasInfo = !label.isEmpty || !identifier.isEmpty || valueStr != nil
-
-        // Skip noise: top-level containers, decorative chevrons, system icons
-        let isTopLevelContainer = type == "Application" || type == "Window"
-        let isDecorativeImage = type == "Image" && label.isEmpty
-            && (identifier == "chevron.forward" || identifier == "chevron.right"
-                || identifier == "chevron.backward" || identifier == "checkmark"
-                || identifier.isEmpty)
-
-        if (isInteractable || hasInfo) && !isDecorativeImage && !isTopLevelContainer {
-            var element: [String: Any] = ["type": type]
-            if !label.isEmpty { element["label"] = label }
-            if !identifier.isEmpty { element["id"] = identifier }
-            if let v = valueStr { element["value"] = v }
-            if let frame = node["frame"] as? [String: Any] {
-                var f: [String: Int] = [:]
-                // WDA returns frame values as Int or Double depending on context
-                func intVal(_ key: String) -> Int? {
-                    if let v = frame[key] as? Int { return v }
-                    if let v = frame[key] as? Double { return Int(v) }
-                    return nil
-                }
-                if let x = intVal("x") { f["x"] = x }
-                if let y = intVal("y") { f["y"] = y }
-                if let w = intVal("width") { f["w"] = w }
-                if let h = intVal("height") { f["h"] = h }
-                if !f.isEmpty { element["frame"] = f }
-            }
-            result.append(element)
-        }
-
-        // Always traverse children
-        if let children = node["children"] as? [[String: Any]] {
-            for child in children {
-                pruneTree(child, into: &result)
-            }
-        }
-    }
-
-    /// Remove StaticText that is spatially contained within a Button/Cell with the same label.
-    /// Also deduplicate identical scroll bar entries and empty Cells overlapping Buttons.
-    private static func deduplicateLabels(_ elements: [[String: Any]]) -> [[String: Any]] {
-        // Collect (label → frame) from Buttons/Cells/NavigationBars
-        struct Rect { let x, y, w, h: Int }
-        var parentRects: [String: [Rect]] = [:]
-        var buttonFrameKeys = Set<String>()
-        for elem in elements {
-            let type = elem["type"] as? String ?? ""
-            if let label = elem["label"] as? String, !label.isEmpty,
-               type == "Button" || type == "Cell" || type == "NavigationBar",
-               let f = elem["frame"] as? [String: Int],
-               let x = f["x"], let y = f["y"], let w = f["w"], let h = f["h"] {
-                parentRects[label, default: []].append(Rect(x: x, y: y, w: w, h: h))
-            }
-            if type == "Button", let f = elem["frame"] as? [String: Int] {
-                buttonFrameKeys.insert("\(f["x"] ?? 0),\(f["y"] ?? 0),\(f["w"] ?? 0),\(f["h"] ?? 0)")
-            }
-        }
-        // Filter out redundant elements
-        var seenKeys = Set<String>()
-        return elements.filter { elem in
-            let type = elem["type"] as? String ?? ""
-            let label = elem["label"] as? String ?? ""
-            // Remove StaticText only if it's spatially inside a Button/Cell with the same label
-            if type == "StaticText" && !label.isEmpty,
-               let rects = parentRects[label],
-               let f = elem["frame"] as? [String: Int],
-               let sx = f["x"], let sy = f["y"], let sw = f["w"], let sh = f["h"] {
-                let contained = rects.contains { r in
-                    sx >= r.x && sy >= r.y
-                        && sx + sw <= r.x + r.w && sy + sh <= r.y + r.h
-                }
-                if contained { return false }
-            }
-            // Remove empty Cells when a Button occupies the same frame
-            if type == "Cell" && label.isEmpty {
-                if let f = elem["frame"] as? [String: Int] {
-                    let key = "\(f["x"] ?? 0),\(f["y"] ?? 0),\(f["w"] ?? 0),\(f["h"] ?? 0)"
-                    if buttonFrameKeys.contains(key) { return false }
-                }
-            }
-            // Deduplicate scroll bars (same label + value)
-            let value = elem["value"] as? String ?? ""
-            if !label.isEmpty && !value.isEmpty {
-                let key = "\(type):\(label):\(value)"
-                if seenKeys.contains(key) { return false }
-                seenKeys.insert(key)
-            }
-            return true
-        }
-    }
 }
 
