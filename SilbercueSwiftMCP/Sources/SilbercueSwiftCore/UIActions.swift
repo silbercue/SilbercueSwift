@@ -48,46 +48,61 @@ public enum UIActions {
     // MARK: - Click / Tap
 
     /// Click a UI element by its ID.
-    /// With IndigoHID: fetches rect, taps at center (~98ms vs ~270ms WDA click).
+    /// With IndigoHID: fetches rect, taps at center (~72ms vs ~293ms WDA click).
+    /// Falls back to WDA on HID failure (e.g. stale Mach port after app reinstall).
     public static func click(elementId: String) async throws {
         if let native = await SessionState.shared.nativeInput,
            let rect = try? await WDAClient.shared.getElementRect(elementId: elementId) {
-            try await native.tap(x: Double(rect.centerX), y: Double(rect.centerY))
-        } else {
-            try await WDAClient.shared.click(elementId: elementId)
+            do {
+                try await native.tap(x: Double(rect.centerX), y: Double(rect.centerY))
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput()
+            }
         }
+        try await WDAClient.shared.click(elementId: elementId)
     }
 
     /// Tap at specific x,y coordinates.
-    /// IndigoHID: ~48ms. WDA fallback: ~200ms.
+    /// IndigoHID: ~32ms. WDA fallback: ~547ms.
+    /// Falls back to WDA on HID failure (e.g. stale Mach port after app reinstall).
     public static func tap(x: Double, y: Double) async throws {
         if let native = await SessionState.shared.nativeInput {
-            try await native.tap(x: x, y: y)
-        } else {
-            try await WDAClient.shared.tap(x: x, y: y)
+            do {
+                try await native.tap(x: x, y: y)
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput()
+            }
         }
+        try await WDAClient.shared.tap(x: x, y: y)
     }
 
     /// Swipe from A to B.
-    /// IndigoHID: ~262ms. WDA fallback: ~1121ms.
+    /// IndigoHID: ~330ms. WDA fallback: ~1152ms.
+    /// Falls back to WDA on HID failure (e.g. stale Mach port after app reinstall).
     public static func swipe(
         fromX: Double, fromY: Double,
         toX: Double, toY: Double,
         durationMs: Int = 300
     ) async throws {
         if let native = await SessionState.shared.nativeInput {
-            try await native.swipe(
-                fromX: fromX, fromY: fromY,
-                toX: toX, toY: toY,
-                durationMs: durationMs
-            )
-        } else {
-            try await WDAClient.shared.swipe(
-                startX: fromX, startY: fromY,
-                endX: toX, endY: toY,
-                durationMs: durationMs
-            )
+            do {
+                try await native.swipe(
+                    fromX: fromX, fromY: fromY,
+                    toX: toX, toY: toY,
+                    durationMs: durationMs
+                )
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput()
+            }
         }
+        try await WDAClient.shared.swipe(
+            startX: fromX, startY: fromY,
+            endX: toX, endY: toY,
+            durationMs: durationMs
+        )
     }
 
     // MARK: - Text

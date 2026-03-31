@@ -120,6 +120,13 @@ public actor SessionState {
 
     // MARK: - Native Input (IndigoHID)
 
+    /// Discard stale HID client (e.g. after machPortInvalid).
+    /// Next resolveSimulator() call will re-create it.
+    func invalidateNativeInput() {
+        nativeInput = nil
+        nativeInputUDID = nil
+    }
+
     private func initNativeInputIfNeeded(udid: String) {
         guard udid != nativeInputUDID else { return }
         nativeInputUDID = udid
