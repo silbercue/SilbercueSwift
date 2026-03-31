@@ -22,13 +22,17 @@ public final class VariableStore {
         return binding
     }
 
-    /// Resolve "$var" → stored binding, or "plain text" → find by accessibility id.
+    /// Resolve "$var" → stored binding, or "plain text" → find by identifier OR label.
     public func resolveTarget(_ target: StepTarget) async throws -> UIActions.ElementBinding {
         switch target {
         case .variable(let name):
             return try resolve("$\(name)")
         case .label(let label):
-            return try await UIActions.find(using: "accessibility id", value: label)
+            let escaped = label.replacingOccurrences(of: "'", with: "\\'")
+            return try await UIActions.find(
+                using: "predicate string",
+                value: "identifier == '\(escaped)' OR label == '\(escaped)'"
+            )
         }
     }
 
