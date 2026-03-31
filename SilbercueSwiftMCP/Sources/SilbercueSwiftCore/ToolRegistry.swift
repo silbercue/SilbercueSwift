@@ -45,5 +45,6 @@ public enum ToolRegistry {
         register(GitTools.registrations)
         register(ConsoleTools.registrations)
         register(TestTools.registrations)
+        register([RunPlanTool.registration])
     }
 }
