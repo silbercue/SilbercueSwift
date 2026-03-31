@@ -31,7 +31,7 @@ public final class VariableStore {
             let escaped = label.replacingOccurrences(of: "'", with: "\\'")
             return try await UIActions.find(
                 using: "predicate string",
-                value: "identifier == '\(escaped)' OR label == '\(escaped)'"
+                value: "name == '\(escaped)' OR label == '\(escaped)'"
             )
         }
     }

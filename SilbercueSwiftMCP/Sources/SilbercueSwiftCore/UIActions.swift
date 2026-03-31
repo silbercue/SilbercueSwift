@@ -126,7 +126,7 @@ public enum UIActions {
         let escapedTarget = target.replacingOccurrences(of: "'", with: "\\'")
         let (elementId, swipes) = try await WDAClient.shared.findElement(
             using: "predicate string",
-            value: "identifier == '\(escapedTarget)' OR label == '\(escapedTarget)'",
+            value: "name == '\(escapedTarget)' OR label == '\(escapedTarget)'",
             scroll: scroll, direction: "auto", maxSwipes: scroll ? 10 : 0
         )
 
