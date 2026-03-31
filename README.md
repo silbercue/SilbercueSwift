@@ -99,22 +99,10 @@ cp .build/release/SilbercueSwift /usr/local/bin/
 
 ### Configure in Claude Code
 
-The easiest way — one command:
+One command — installs globally for all projects:
 
 ```bash
-claude mcp add SilbercueSwift /opt/homebrew/bin/SilbercueSwift
-```
-
-Or add manually to `~/.claude.json` (global):
-
-```json
-{
-  "mcpServers": {
-    "SilbercueSwift": {
-      "command": "/opt/homebrew/bin/SilbercueSwift"
-    }
-  }
-}
+claude mcp add --scope user SilbercueSwift /opt/homebrew/bin/SilbercueSwift
 ```
 
 > **Note:** Use the full path (`/opt/homebrew/bin/SilbercueSwift`). Claude Code starts MCP servers without a full shell PATH, so bare command names won't be found.
