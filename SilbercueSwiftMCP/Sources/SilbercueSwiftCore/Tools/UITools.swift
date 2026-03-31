@@ -501,45 +501,28 @@ enum UITools {
         do {
             // Step 1: Back navigation if requested
             if back {
-                // Try BackButton accessibility id first (SwiftUI NavigationStack),
-                // then Back button label, then first button as last resort
-                let backElementId: String
+                // Single predicate covering BackButton ID, "Back" label, and nav bar buttons
                 if let (bid, _) = try? await WDAClient.shared.findElement(
-                    using: "accessibility id", value: "BackButton",
+                    using: "predicate string",
+                    value: "identifier == 'BackButton' OR (type == 'XCUIElementTypeButton' AND label == 'Back')",
                     scroll: false, direction: "auto", maxSwipes: 0
                 ) {
-                    backElementId = bid
-                } else if let (bid, _) = try? await WDAClient.shared.findElement(
-                    using: "predicate string", value: "label == 'Back'",
-                    scroll: false, direction: "auto", maxSwipes: 0
-                ) {
-                    backElementId = bid
+                    try await WDAClient.shared.click(elementId: bid)
                 } else {
-                    // Last resort: first button in the NavigationBar
-                    let (bid, _) = try await WDAClient.shared.findElement(
-                        using: "class chain", value: "**/XCUIElementTypeNavigationBar/XCUIElementTypeButton[1]",
-                        scroll: false, direction: "auto", maxSwipes: 0
-                    )
-                    backElementId = bid
+                    // Fallback: tap the standard back button position (top-left corner)
+                    try await WDAClient.shared.tap(x: 38.0, y: 84.0)
                 }
-                try await WDAClient.shared.click(elementId: backElementId)
                 try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
                 steps.append("back")
             }
 
-            // Step 2: Find target element — try accessibility id first, then label predicate
-            let (elementId, swipes): (String, Int)
-            if let (eid, sw) = try? await WDAClient.shared.findElement(
-                using: "accessibility id", value: target,
+            // Step 2: Find target — single predicate covering accessibility id and label
+            let escapedTarget = target.replacingOccurrences(of: "'", with: "\\'")
+            let (elementId, swipes) = try await WDAClient.shared.findElement(
+                using: "predicate string",
+                value: "identifier == '\(escapedTarget)' OR label == '\(escapedTarget)'",
                 scroll: scroll, direction: "auto", maxSwipes: scroll ? 10 : 0
-            ) {
-                (elementId, swipes) = (eid, sw)
-            } else {
-                (elementId, swipes) = try await WDAClient.shared.findElement(
-                    using: "predicate string", value: "label == '\(target)'",
-                    scroll: scroll, direction: "auto", maxSwipes: scroll ? 10 : 0
-                )
-            }
+            )
 
             // Step 3: Click
             try await WDAClient.shared.click(elementId: elementId)
@@ -560,10 +543,14 @@ enum UITools {
             return .init(content: content)
         } catch {
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+            let errStr = "\(error)"
+            let cleanErr = errStr.contains("not found")
+                ? "Element '\(target)' not found on current screen"
+                : errStr
             if steps.isEmpty {
-                return .fail("Navigate failed (\(elapsed)ms): \(error)")
+                return .fail("Navigate failed (\(elapsed)ms): \(cleanErr)")
             }
-            return .fail("Navigate failed after [\(steps.joined(separator: " → "))] (\(elapsed)ms): \(error)")
+            return .fail("Navigate failed after [\(steps.joined(separator: " → "))] (\(elapsed)ms): \(cleanErr)")
         }
     }
 
@@ -655,13 +642,14 @@ enum UITools {
         let isInteractable = interactableTypes.contains(type)
         let hasInfo = !label.isEmpty || !identifier.isEmpty || valueStr != nil
 
-        // Skip noise: decorative chevrons, system icons without meaningful labels
+        // Skip noise: top-level containers, decorative chevrons, system icons
+        let isTopLevelContainer = type == "Application" || type == "Window"
         let isDecorativeImage = type == "Image" && label.isEmpty
             && (identifier == "chevron.forward" || identifier == "chevron.right"
                 || identifier == "chevron.backward" || identifier == "checkmark"
                 || identifier.isEmpty)
 
-        if (isInteractable || hasInfo) && !isDecorativeImage {
+        if (isInteractable || hasInfo) && !isDecorativeImage && !isTopLevelContainer {
             var element: [String: Any] = ["type": type]
             if !label.isEmpty { element["label"] = label }
             if !identifier.isEmpty { element["id"] = identifier }
