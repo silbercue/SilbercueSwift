@@ -23,7 +23,7 @@ jobs:
           ssh-key: ${{ secrets.PRO_DEPLOY_KEY }}
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
       - name: Build combined binary
         run: ./SilbercueSwiftMCP/scripts/build-combined.sh ./SilbercueSwiftPro
