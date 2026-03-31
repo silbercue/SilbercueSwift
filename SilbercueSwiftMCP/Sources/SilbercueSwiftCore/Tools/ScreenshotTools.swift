@@ -5,7 +5,7 @@ enum ScreenshotTools {
     static let tools: [Tool] = [
         Tool(
             name: "screenshot",
-            description: "Take a screenshot of a booted simulator. Returns the image inline via simctl. Simulator is auto-detected if omitted.",
+            description: "Take a screenshot of a booted simulator. Returns the image inline. Use quality: 'compact' for UI verification (75% smaller, saves context window). Use 'full' for visual regression or pixel-perfect comparison.",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object([
@@ -16,6 +16,10 @@ enum ScreenshotTools {
                     "format": .object([
                         "type": .string("string"),
                         "description": .string("Image format: png or jpeg. Default: jpeg"),
+                    ]),
+                    "quality": .object([
+                        "type": .string("string"),
+                        "description": .string("'compact' = 1x point size, JPEG 80% (~75% smaller). 'full' = native Retina resolution. Default: full"),
                     ]),
                 ]),
             ])
@@ -41,6 +45,7 @@ enum ScreenshotTools {
             return .fail("\(error)")
         }
         let format = args?["format"]?.stringValue ?? "jpeg"
+        let compact = args?["quality"]?.stringValue == "compact"
 
         let start = CFAbsoluteTimeGetCurrent()
 
@@ -50,6 +55,15 @@ enum ScreenshotTools {
             let elapsed = String(
                 format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
             let mimeType = format.hasPrefix("jp") ? "image/jpeg" : "image/png"
+
+            if compact, let downscaled = ImageUtils.downscale(base64: result.base64, scaleFactor: 3) {
+                let compactSize = downscaled.count * 3 / 4 / 1024  // approx decoded KB
+                return .init(content: [
+                    .image(data: downscaled, mimeType: "image/jpeg", annotations: nil, _meta: nil),
+                    .text(text: "\(result.width/3)x\(result.height/3) compact | ~\(compactSize)KB | \(elapsed)ms (\(result.method))", annotations: nil, _meta: nil),
+                ])
+            }
+
             return .init(content: [
                 .image(
                     data: result.base64, mimeType: mimeType, annotations: nil, _meta: nil),
@@ -60,13 +74,13 @@ enum ScreenshotTools {
         }
 
         // Free: simctl fallback (~320ms)
-        return await simctlScreenshot(sim: sim, format: format, start: start)
+        return await simctlScreenshot(sim: sim, format: format, compact: compact, start: start)
     }
 
     // MARK: - simctl Fallback (writes to file, returns path)
 
     private static func simctlScreenshot(
-        sim: String, format: String, start: CFAbsoluteTime
+        sim: String, format: String, compact: Bool, start: CFAbsoluteTime
     ) async -> CallTool.Result {
         let outputPath = "/tmp/ss-screenshot.\(format)"
         do {
@@ -79,8 +93,13 @@ enum ScreenshotTools {
                 format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
 
             if result.succeeded {
-                // Read file and return inline
                 if let data = FileManager.default.contents(atPath: outputPath) {
+                    if compact, let downscaled = ImageUtils.downscale(data: data, scaleFactor: 3) {
+                        return .init(content: [
+                            .image(data: downscaled.base64EncodedString(), mimeType: "image/jpeg", annotations: nil, _meta: nil),
+                            .text(text: "compact | ~\(downscaled.count / 1024)KB | \(elapsed)ms (simctl)", annotations: nil, _meta: nil),
+                        ])
+                    }
                     let mimeType = format.hasPrefix("jp") ? "image/jpeg" : "image/png"
                     return .init(content: [
                         .image(

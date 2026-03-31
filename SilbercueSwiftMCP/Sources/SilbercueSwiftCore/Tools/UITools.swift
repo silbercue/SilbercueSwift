@@ -60,23 +60,25 @@ enum UITools {
         ),
         Tool(
             name: "click_element",
-            description: "Click/tap a UI element by its ID.",
+            description: "Click/tap a UI element by its ID. Set screenshot: true to get an inline screenshot after the tap (saves a separate screenshot call).",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object([
                     "element_id": .object(["type": .string("string"), "description": .string("Element ID from find_element")]),
+                    "screenshot": .object(["type": .string("boolean"), "description": .string("Take inline screenshot after action. Default: false")]),
                 ]),
                 "required": .array([.string("element_id")]),
             ])
         ),
         Tool(
             name: "tap_coordinates",
-            description: "Tap at specific x,y coordinates on screen.",
+            description: "Tap at specific x,y coordinates on screen. Set screenshot: true to get an inline screenshot after the tap.",
             inputSchema: .object([
                 "type": .string("object"),
                 "properties": .object([
                     "x": .object(["type": .string("number"), "description": .string("X coordinate")]),
                     "y": .object(["type": .string("number"), "description": .string("Y coordinate")]),
+                    "screenshot": .object(["type": .string("boolean"), "description": .string("Take inline screenshot after action. Default: false")]),
                 ]),
                 "required": .array([.string("x"), .string("y")]),
             ])
@@ -90,6 +92,7 @@ enum UITools {
                     "text": .object(["type": .string("string"), "description": .string("Text to type")]),
                     "element_id": .object(["type": .string("string"), "description": .string("Optional element ID to type into")]),
                     "clear_first": .object(["type": .string("boolean"), "description": .string("Clear existing text first. Default: false")]),
+                    "screenshot": .object(["type": .string("boolean"), "description": .string("Take inline screenshot after action. Default: false")]),
                 ]),
                 "required": .array([.string("text")]),
             ])
@@ -386,7 +389,7 @@ enum UITools {
             let start = CFAbsoluteTimeGetCurrent()
             try await WDAClient.shared.click(elementId: elementId)
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
-            return .ok("Clicked element \(elementId) (\(elapsed)ms)")
+            return await .okWithScreenshot("Clicked element \(elementId) (\(elapsed)ms)", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
             return .fail("Click failed: \(error)")
         }
@@ -401,7 +404,7 @@ enum UITools {
             let start = CFAbsoluteTimeGetCurrent()
             try await WDAClient.shared.tap(x: x, y: y)
             let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
-            return .ok("Tapped at (\(Int(x)), \(Int(y))) (\(elapsed)ms)")
+            return await .okWithScreenshot("Tapped at (\(Int(x)), \(Int(y))) (\(elapsed)ms)", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
             return .fail("Tap failed: \(error)")
         }
@@ -443,7 +446,7 @@ enum UITools {
                 }
                 try await WDAClient.shared.setValue(elementId: eid, text: text)
             }
-            return .ok("Typed '\(text)'")
+            return await .okWithScreenshot("Typed '\(text)'", screenshot: args?["screenshot"]?.boolValue ?? false)
         } catch {
             return .fail("Type failed: \(error)")
         }
