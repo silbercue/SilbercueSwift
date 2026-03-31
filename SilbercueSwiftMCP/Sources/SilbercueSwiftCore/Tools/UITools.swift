@@ -501,17 +501,14 @@ enum UITools {
         do {
             // Step 1: Back navigation if requested
             if back {
-                // Single predicate covering BackButton ID, "Back" label, and nav bar buttons
-                if let (bid, _) = try? await WDAClient.shared.findElement(
-                    using: "predicate string",
-                    value: "identifier == 'BackButton' OR (type == 'XCUIElementTypeButton' AND label == 'Back')",
-                    scroll: false, direction: "auto", maxSwipes: 0
-                ) {
-                    try await WDAClient.shared.click(elementId: bid)
-                } else {
-                    // Fallback: tap the standard back button position (top-left corner)
-                    try await WDAClient.shared.tap(x: 38.0, y: 84.0)
+                // Find back button via get_source — instant (0.1s), no WDA implicit wait.
+                // iOS 26 SwiftUI back buttons carry the parent screen's label, not "Back",
+                // so findElement by label/id is unreliable. Instead, walk the source tree
+                // and find the first Button inside a NavigationBar.
+                guard let center = await findBackButtonCenter() else {
+                    return .fail("Navigate failed: no back button found in NavigationBar")
                 }
+                try await WDAClient.shared.tap(x: Double(center.x), y: Double(center.y))
                 try await Task.sleep(nanoseconds: UInt64(settleMs) * 1_000_000)
                 steps.append("back")
             }
@@ -614,6 +611,75 @@ enum UITools {
     // MARK: - Pruned Mode Helpers
 
     /// Types that are always kept in pruned output (interactive/structural).
+    /// Find the back button center by walking the WDA source tree.
+    /// Returns center coordinates of the first Button inside a NavigationBar, or nil.
+    /// Uses get_source (0.1s) instead of findElement (avoids 6-18s WDA implicit wait).
+    private static func findBackButtonCenter() async -> (x: Int, y: Int)? {
+        guard let source = try? await WDAClient.shared.getSource(format: "json"),
+              let data = source.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        // WDA wraps tree as JSON string in "value"
+        let tree: [String: Any]
+        if let vs = json["value"] as? String,
+           let vd = vs.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: vd) as? [String: Any] {
+            tree = parsed
+        } else {
+            tree = json["value"] as? [String: Any] ?? json
+        }
+        // Walk tree: find NavigationBar, then its first Button descendant
+        return findFirstButtonInNavBar(tree)
+    }
+
+    /// Recursively find a NavigationBar node, then return the center of its first Button child.
+    private static func findFirstButtonInNavBar(_ node: [String: Any]) -> (x: Int, y: Int)? {
+        let rawType = node["type"] as? String ?? ""
+        let type = rawType.hasPrefix("XCUIElementType") ? String(rawType.dropFirst("XCUIElementType".count)) : rawType
+
+        if type == "NavigationBar" {
+            // Found NavBar — now find first Button descendant
+            if let btn = findFirstButton(in: node) {
+                return btn
+            }
+        }
+        // Keep searching children
+        if let children = node["children"] as? [[String: Any]] {
+            for child in children {
+                if let result = findFirstButtonInNavBar(child) {
+                    return result
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Find the first Button descendant and return its frame center.
+    private static func findFirstButton(in node: [String: Any]) -> (x: Int, y: Int)? {
+        let rawType = node["type"] as? String ?? ""
+        let type = rawType.hasPrefix("XCUIElementType") ? String(rawType.dropFirst("XCUIElementType".count)) : rawType
+
+        if type == "Button", let frame = node["frame"] as? [String: Any] {
+            func intVal(_ key: String) -> Int? {
+                if let v = frame[key] as? Int { return v }
+                if let v = frame[key] as? Double { return Int(v) }
+                return nil
+            }
+            if let x = intVal("x"), let y = intVal("y"), let w = intVal("width"), let h = intVal("height") {
+                return (x: x + w / 2, y: y + h / 2)
+            }
+        }
+        if let children = node["children"] as? [[String: Any]] {
+            for child in children {
+                if let result = findFirstButton(in: child) {
+                    return result
+                }
+            }
+        }
+        return nil
+    }
+
     private static let interactableTypes: Set<String> = [
         "Button", "TextField", "SecureTextField", "TextView", "StaticText",
         "Switch", "Slider", "Cell", "NavigationBar", "Alert", "Sheet",
