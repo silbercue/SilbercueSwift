@@ -489,7 +489,7 @@ public actor WDAClient {
 
     // MARK: - Element Finding
 
-    public func findElement(using strategy: String, value: String, scroll: Bool = false, direction: String = "auto", maxSwipes: Int = 10) async throws -> (elementId: String, swipes: Int) {
+    public func findElement(using strategy: String, value: String, scroll: Bool = false, direction: String = "auto", maxSwipes: Int = 10) async throws -> (elementId: String, swipes: Int, rect: ElementRect?, label: String?) {
         let sid = try await ensureSession()
         var body: [String: Any] = ["using": strategy, "value": value]
         if scroll {
@@ -517,7 +517,21 @@ public actor WDAClient {
             throw WDAError.elementNotFound(strategy, value)
         }
         let swipes = element["swipes"] as? Int ?? 0
-        return (elementId, swipes)
+
+        // Parse enriched response fields (rect + label) if present
+        let rect: ElementRect?
+        if let r = element["rect"] as? [String: Any],
+           let x = (r["x"] as? NSNumber)?.intValue,
+           let y = (r["y"] as? NSNumber)?.intValue,
+           let w = (r["width"] as? NSNumber)?.intValue,
+           let h = (r["height"] as? NSNumber)?.intValue {
+            rect = ElementRect(x: x, y: y, width: w, height: h)
+        } else {
+            rect = nil
+        }
+        let label = element["label"] as? String
+
+        return (elementId, swipes, rect, label)
     }
 
     public func findElements(using strategy: String, value: String) async throws -> [String] {
@@ -547,6 +561,13 @@ public actor WDAClient {
 
         public var description: String {
             "{x:\(x), y:\(y), w:\(width), h:\(height)}"
+        }
+
+        public init(x: Int, y: Int, width: Int, height: Int) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
         }
     }
 

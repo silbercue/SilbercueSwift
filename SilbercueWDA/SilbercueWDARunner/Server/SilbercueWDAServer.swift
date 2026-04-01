@@ -431,11 +431,27 @@ extension SilbercueWDAServer {
             let (elementId, swipes) = try await bridge.findElementWithScroll(
                 using: using, value: value, direction: direction, maxSwipes: maxSwipes
             )
-            return jsonResponse(["value": ["ELEMENT": elementId, "swipes": swipes], "status": 0])
+            var result: [String: Any] = ["ELEMENT": elementId, "swipes": swipes]
+            // Enriched response: embed rect + label to save 2 HTTP roundtrips
+            if let rect = try? await bridge.getRect(elementId: elementId) {
+                result["rect"] = rect
+            }
+            if let label = try? await bridge.getAttribute("label", elementId: elementId), !label.isEmpty {
+                result["label"] = label
+            }
+            return jsonResponse(["value": result, "status": 0])
         }
 
         let elementId = try await bridge.findElement(using: using, value: value)
-        return jsonResponse(["value": ["ELEMENT": elementId], "status": 0])
+        var result: [String: Any] = ["ELEMENT": elementId]
+        // Enriched response: embed rect + label to save 2 HTTP roundtrips
+        if let rect = try? await bridge.getRect(elementId: elementId) {
+            result["rect"] = rect
+        }
+        if let label = try? await bridge.getAttribute("label", elementId: elementId), !label.isEmpty {
+            result["label"] = label
+        }
+        return jsonResponse(["value": result, "status": 0])
     }
 
     func handleFindElements(_ request: HTTPRequest, sessionId: String) async throws -> HTTPResponse {

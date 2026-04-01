@@ -49,10 +49,9 @@ public enum ActionScreenshot {
     /// Capture a compact screenshot and return as Tool.Content.image, or nil on failure.
     public static func capture() async -> Tool.Content? {
         // Resolve simulator: session default → auto-detect → first booted
+        // MUST use resolveSimulator to expand short UDID prefixes (e.g. "51AC" → full UUID)
         let sim: String
-        if let stored = await SessionState.shared.simulator {
-            sim = stored
-        } else if let resolved = try? await SessionState.shared.resolveSimulator(nil) {
+        if let resolved = try? await SessionState.shared.resolveSimulator(nil) {
             sim = resolved
         } else if let first = await firstBootedSimulator() {
             sim = first

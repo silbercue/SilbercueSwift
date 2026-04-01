@@ -18,6 +18,13 @@ public enum UIActions {
 
         public var centerX: Int? { rect?.centerX }
         public var centerY: Int? { rect?.centerY }
+
+        public init(elementId: String, rect: WDAClient.ElementRect?, swipes: Int, label: String?) {
+            self.elementId = elementId
+            self.rect = rect
+            self.swipes = swipes
+            self.label = label
+        }
     }
 
     public struct NavigateResult: Sendable {
@@ -42,6 +49,8 @@ public enum UIActions {
     // MARK: - Find
 
     /// Find a UI element and return its binding (id + rect + label).
+    /// Pro path: AXP direct accessibility (~10-15ms) when scroll=false.
+    /// Free/fallback: WDA HTTP (3 calls → ~92ms, or enriched → ~55ms).
     public static func find(
         using: String,
         value: String,
@@ -49,23 +58,53 @@ public enum UIActions {
         direction: String = "auto",
         maxSwipes: Int = 10
     ) async throws -> ElementBinding {
+        // AXP fast path: Pro + scroll=false + handler available
+        if !scroll, let handler = ProHooks.findElementHandler {
+            let udid = try await currentUDID()
+            if let result = await handler(using, value, udid) {
+                return result
+            }
+            // AXP returned nil (unsupported strategy or error) → fall through to WDA
+        }
+
+        // WDA path (Free tier, scroll=true, or AXP fallback)
         let client = try await wda()
-        let (elementId, swipes) = try await client.findElement(
+        let (elementId, swipes, enrichedRect, enrichedLabel) = try await client.findElement(
             using: using, value: value, scroll: scroll,
             direction: direction, maxSwipes: maxSwipes
         )
-        let rect = try? await client.getElementRect(elementId: elementId)
-        // Try to get label (best-effort)
-        let label = try? await client.getElementAttribute("label", elementId: elementId)
+        // Use enriched response if available, otherwise fetch separately (2 extra HTTP calls)
+        let rect: WDAClient.ElementRect?
+        if let r = enrichedRect {
+            rect = r
+        } else {
+            rect = try? await client.getElementRect(elementId: elementId)
+        }
+        let label: String?
+        if let l = enrichedLabel {
+            label = l
+        } else {
+            label = try? await client.getElementAttribute("label", elementId: elementId)
+        }
         return ElementBinding(elementId: elementId, rect: rect, swipes: swipes, label: label)
     }
 
     // MARK: - Click / Tap
 
     /// Click a UI element by its ID.
-    /// With IndigoHID: fetches rect, taps at center (~72ms vs ~293ms WDA click).
-    /// Falls back to WDA on HID failure (e.g. stale Mach port after app reinstall).
+    /// AXP-cached elements ("axp-" prefix): tap at cached center via IndigoHID (~32ms).
+    /// WDA elements: fetch rect + IndigoHID tap (~72ms), or WDA click fallback (~293ms).
     public static func click(elementId: String) async throws {
+        // AXP cache path: "axp-" prefix → cached coordinates → IndigoHID tap
+        if elementId.hasPrefix("axp-") {
+            if let handler = ProHooks.clickElementHandler, await handler(elementId) {
+                return
+            }
+            // Cache miss — axp-* IDs are synthetic, WDA doesn't know them
+            throw UIActionError.axpElementExpired(elementId)
+        }
+
+        // WDA path (non-axp elements only)
         let udid = try await currentUDID()
         let client = await SessionState.shared.wdaClient(for: udid)
         if let native = await SessionState.shared.nativeInput(for: udid),
@@ -149,7 +188,7 @@ public enum UIActions {
             ]
             var foundId: String?
             for typeName in textInputTypes {
-                if let (eid, _) = try? await client.findElement(
+                if let (eid, _, _, _) = try? await client.findElement(
                     using: "class name", value: typeName
                 ) {
                     foundId = eid
@@ -167,7 +206,20 @@ public enum UIActions {
     }
 
     /// Get text content of a UI element.
+    /// AXP-cached elements ("axp-" prefix): returns cached label/value (~0ms).
+    /// WDA elements: HTTP request (~30ms).
     public static func getText(elementId: String) async throws -> String {
+        // AXP cache path: "axp-" prefix → cached label/value
+        if elementId.hasPrefix("axp-") {
+            if let handler = ProHooks.getTextHandler,
+               let text = await handler(elementId) {
+                return text
+            }
+            // Cache miss — axp-* IDs are synthetic, WDA doesn't know them
+            throw UIActionError.axpElementExpired(elementId)
+        }
+
+        // WDA path (non-axp elements only)
         let client = try await wda()
         return try await client.getText(elementId: elementId)
     }
@@ -196,7 +248,7 @@ public enum UIActions {
 
         // Step 2: Find target
         let escapedTarget = target.replacingOccurrences(of: "'", with: "\\'")
-        let (elementId, swipes) = try await client.findElement(
+        let (elementId, swipes, _, _) = try await client.findElement(
             using: "predicate string",
             value: "label == '\(escapedTarget)' OR identifier == '\(escapedTarget)'",
             scroll: scroll, direction: "auto", maxSwipes: scroll ? 10 : 0
@@ -295,6 +347,7 @@ public enum UIActions {
         case noTextInput
         case noBackButton
         case sourceParseError
+        case axpElementExpired(String)
 
         public var description: String {
             switch self {
@@ -304,6 +357,8 @@ public enum UIActions {
                 return "No back button found in NavigationBar"
             case .sourceParseError:
                 return "Failed to parse JSON source"
+            case .axpElementExpired(let id):
+                return "Element \(String(id.prefix(12)))… expired from cache. Run find_element again to get a fresh reference."
             }
         }
     }

@@ -398,7 +398,7 @@ Measured on M3 MacBook Pro, iOS 26.4 Simulator:
 | Action | Competition (best of) | SilbercueSwift |
 |---|---|---|
 | Screenshot | ~0.5s | **~15ms** (30x) |
-| Find element | ~500ms | **~100ms** (5x) |
+| Find element | ~500ms | **~30ms** (17x) |
 | Click element | ~500ms | **~180ms** (IndigoHID) / ~400ms (WDA) |
 | Tap (coordinates) | ~500ms | **~48ms** (IndigoHID, 10x) / ~200ms (WDA) |
 | Swipe | ~500ms | **~262ms** (IndigoHID) / ~400ms (WDA) |
