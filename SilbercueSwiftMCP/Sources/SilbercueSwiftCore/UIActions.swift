@@ -49,8 +49,9 @@ public enum UIActions {
     // MARK: - Find
 
     /// Find a UI element and return its binding (id + rect + label).
-    /// Pro path: AXP direct accessibility (~10-15ms) when scroll=false.
-    /// Free/fallback: WDA HTTP (3 calls → ~92ms, or enriched → ~55ms).
+    /// Pro cached path: AXP + tree cache (~0-5ms) when scroll=false + Pro hook set.
+    /// Free AXP path: AXP direct bulk walk (~30ms) when scroll=false + AXP available.
+    /// WDA fallback: HTTP (enriched → ~55ms, legacy → ~92ms).
     public static func find(
         using: String,
         value: String,
@@ -58,22 +59,48 @@ public enum UIActions {
         direction: String = "auto",
         maxSwipes: Int = 10
     ) async throws -> ElementBinding {
-        // AXP fast path: Pro + scroll=false + handler available
+        // Pro cached path: handler set by Pro → cached tree, 0-5ms
         if !scroll, let handler = ProHooks.findElementHandler {
             let udid = try await currentUDID()
             if let result = await handler(using, value, udid) {
                 return result
             }
-            // AXP returned nil (unsupported strategy or error) → fall through to WDA
+            // Pro hook returned nil (unsupported strategy or error) → fall through
         }
 
-        // WDA path (Free tier, scroll=true, or AXP fallback)
+        // AXP direct path: Free tier, scroll=false, ~30ms
+        if !scroll, AXPBridge.isAvailable {
+            let udid = try await currentUDID()
+            do {
+                let result: AXPFindResult = try await withCheckedThrowingContinuation { cont in
+                    DispatchQueue.global(qos: .userInteractive).async {
+                        do {
+                            let bridge = try AXPBridgeManager.bridge(for: udid)
+                            let r = try bridge.findElement(using: using, value: value)
+                            cont.resume(returning: r)
+                        } catch {
+                            cont.resume(throwing: error)
+                        }
+                    }
+                }
+                let rect = WDAClient.ElementRect(
+                    x: result.x, y: result.y, width: result.width, height: result.height
+                )
+                return ElementBinding(
+                    elementId: result.syntheticId, rect: rect, swipes: 0, label: result.label
+                )
+            } catch {
+                Log.warn("AXP find failed, falling back to WDA: \(error.localizedDescription)")
+                // Fall through to WDA
+            }
+        }
+
+        // WDA path (scroll=true, AXP unavailable, or AXP fallback)
         let client = try await wda()
         let (elementId, swipes, enrichedRect, enrichedLabel) = try await client.findElement(
             using: using, value: value, scroll: scroll,
             direction: direction, maxSwipes: maxSwipes
         )
-        // Use enriched response if available, otherwise fetch separately (2 extra HTTP calls)
         let rect: WDAClient.ElementRect?
         if let r = enrichedRect {
             rect = r
@@ -100,7 +127,11 @@ public enum UIActions {
             if let handler = ProHooks.clickElementHandler, await handler(elementId) {
                 return
             }
-            // Cache miss — axp-* IDs are synthetic, WDA doesn't know them
+            // Free path: check AXPElementCache directly
+            if let cached = AXPElementCache.lookup(elementId) {
+                try await tap(x: Double(cached.centerX), y: Double(cached.centerY))
+                return
+            }
             throw UIActionError.axpElementExpired(elementId)
         }
 
@@ -215,7 +246,10 @@ public enum UIActions {
                let text = await handler(elementId) {
                 return text
             }
-            // Cache miss — axp-* IDs are synthetic, WDA doesn't know them
+            // Free path: check AXPElementCache directly
+            if let cached = AXPElementCache.lookup(elementId) {
+                return cached.label ?? cached.value ?? ""
+            }
             throw UIActionError.axpElementExpired(elementId)
         }
 
