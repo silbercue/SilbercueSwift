@@ -386,13 +386,70 @@ enum UITools {
             return .fail("Missing required: using, value")
         }
 
-        let client: WDAClient
-        do { client = try await wda() } catch { return .fail("No simulator: \(error)") }
-
         do {
             let start = CFAbsoluteTimeGetCurrent()
+
+            // Pro cached path
+            if let handler = ProHooks.findElementsHandler {
+                let udid = try await SessionState.shared.resolveSimulator(nil)
+                if let bindings = await handler(using, value, udid) {
+                    let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+                    let lines = bindings.enumerated().map { i, b in
+                        if let rect = b.rect {
+                            return "  [\(i)] \(b.elementId) — frame: \(rect.description), center: (\(rect.centerX), \(rect.centerY))"
+                                + (b.label.map { ", label: \($0)" } ?? "")
+                        }
+                        return "  [\(i)] \(b.elementId)" + (b.label.map { " — label: \($0)" } ?? "")
+                    }
+                    return .ok("Found \(bindings.count) elements (\(elapsed)ms):\n" + lines.joined(separator: "\n"))
+                }
+            }
+
+            // AXP direct path (Free tier, ~30ms)
+            if AXPBridge.isAvailable {
+                let udid = try await SessionState.shared.resolveSimulator(nil)
+                let bindings: [UIActions.ElementBinding] = try await withCheckedThrowingContinuation { cont in
+                    DispatchQueue.global(qos: .userInteractive).async {
+                        do {
+                            let bridge = try AXPBridgeManager.bridge(for: udid)
+                            let (elements, rootFrame) = try bridge.fetchTree()
+                            let matches = bridge.filterElements(elements, strategy: using, value: value)
+                            let results = matches.map { match -> UIActions.ElementBinding in
+                                let iosRect = bridge.transformFrame(match.frame, rootFrame: rootFrame)
+                                let x = Int(iosRect.origin.x.rounded())
+                                let y = Int(iosRect.origin.y.rounded())
+                                let w = max(1, Int(iosRect.size.width.rounded()))
+                                let h = max(1, Int(iosRect.size.height.rounded()))
+                                let rect = WDAClient.ElementRect(x: x, y: y, width: w, height: h)
+                                let syntheticId = "axp-\(UUID().uuidString)"
+                                AXPElementCache.store(
+                                    id: syntheticId, centerX: rect.centerX, centerY: rect.centerY,
+                                    label: match.label, value: match.value, role: match.role
+                                )
+                                return UIActions.ElementBinding(
+                                    elementId: syntheticId, rect: rect, swipes: 0, label: match.label
+                                )
+                            }
+                            cont.resume(returning: results)
+                        } catch {
+                            cont.resume(throwing: error)
+                        }
+                    }
+                }
+                let elapsed = String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - start) * 1000)
+                let lines = bindings.enumerated().map { i, b in
+                    if let rect = b.rect {
+                        return "  [\(i)] \(b.elementId) — frame: \(rect.description), center: (\(rect.centerX), \(rect.centerY))"
+                            + (b.label.map { ", label: \($0)" } ?? "")
+                    }
+                    return "  [\(i)] \(b.elementId)" + (b.label.map { " — label: \($0)" } ?? "")
+                }
+                return .ok("Found \(bindings.count) elements (\(elapsed)ms):\n" + lines.joined(separator: "\n"))
+            }
+
+            // WDA fallback
+            let client = try await wda()
             let elements = try await client.findElements(using: using, value: value)
-            // Fetch rects in parallel (best-effort)
             let rects = await withTaskGroup(of: (Int, WDAClient.ElementRect?).self) { group in
                 for (i, eid) in elements.enumerated() {
                     group.addTask {

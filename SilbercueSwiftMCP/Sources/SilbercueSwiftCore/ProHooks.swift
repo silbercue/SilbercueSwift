@@ -33,6 +33,13 @@ public enum ProHooks {
     public nonisolated(unsafe) static var getSourceHandler:
         (@Sendable (_ simulator: String) async -> [[String: Any]]?)?
 
+    /// Pro find_elements handler via AXP cached tree.
+    /// Returns array of ElementBindings or nil to fall back to Free AXP/WDA.
+    /// Parameters: (using, value, simulator_udid)
+    public nonisolated(unsafe) static var findElementsHandler:
+        (@Sendable (_ using: String, _ value: String, _ simulator: String) async
+         -> [UIActions.ElementBinding]?)?
+
     /// Pro tap hold override. Reduces IndigoHID touch hold duration after validation.
     /// Free default: 15ms (safe for all gesture recognizers).
     public static func setTapHoldMs(_ ms: Int) {

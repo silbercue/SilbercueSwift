@@ -227,6 +227,39 @@ public final class AXPBridge: @unchecked Sendable {
         }
     }
 
+    /// Filters ALL matching elements from the pre-fetched list — pure local, no XPC.
+    public func filterElements(_ elements: [BulkElement], strategy: String, value: String) -> [BulkElement] {
+        switch strategy {
+        case "accessibility id":
+            let byId = elements.filter { $0.identifier == value }
+            return byId.isEmpty ? elements.filter { $0.label == value } : byId
+
+        case "predicate string":
+            let predicate = NSPredicate(format: value)
+            return elements.filter { elem in
+                let dict: [String: Any] = [
+                    "label": elem.label ?? "",
+                    "name": elem.label ?? "",
+                    "identifier": elem.identifier ?? "",
+                    "value": elem.value ?? "",
+                    "type": Self.axpRoleToWDAClass(elem.role ?? ""),
+                    "elementType": Self.axpRoleToWDAClass(elem.role ?? ""),
+                ]
+                return predicate.evaluate(with: dict)
+            }
+
+        case "class name":
+            let axpRole = Self.wdaClassToAXPRole(value)
+            return elements.filter { elem in
+                guard let role = elem.role else { return false }
+                return role.caseInsensitiveCompare(axpRole) == .orderedSame
+            }
+
+        default:
+            return []
+        }
+    }
+
     /// Builds an AXPFindResult from a matched element, transforming coordinates and caching.
     public func buildResult(from match: BulkElement, rootFrame: CGRect,
                            start: ContinuousClock.Instant, elementCount: Int,
