@@ -67,6 +67,53 @@ final class IndigoHIDClient: @unchecked Sendable {
         try await sendTouch(.up, x: x, y: y)
     }
 
+    // MARK: - Double Tap (iOS point coordinates)
+
+    func doubleTap(x: Double, y: Double) async throws {
+        try await sendTouch(.down, x: x, y: y)
+        try await Task.sleep(for: .milliseconds(Self.touchHoldMs))
+        try await sendTouch(.up, x: x, y: y)
+        try await Task.sleep(for: .milliseconds(50))
+        try await sendTouch(.down, x: x, y: y)
+        try await Task.sleep(for: .milliseconds(Self.touchHoldMs))
+        try await sendTouch(.up, x: x, y: y)
+    }
+
+    // MARK: - Long Press (iOS point coordinates)
+
+    func longPress(x: Double, y: Double, durationMs: Int = 1000) async throws {
+        try await sendTouch(.down, x: x, y: y)
+        try await Task.sleep(for: .milliseconds(durationMs))
+        try await sendTouch(.up, x: x, y: y)
+    }
+
+    // MARK: - Drag and Drop (iOS point coordinates)
+
+    func dragAndDrop(
+        fromX: Double, fromY: Double,
+        toX: Double, toY: Double,
+        pressDurationMs: Int = 1000,
+        moveDurationMs: Int = 300,
+        steps: Int = 15
+    ) async throws {
+        // Long press to activate drag mode
+        try await sendTouch(.down, x: fromX, y: fromY)
+        try await Task.sleep(for: .milliseconds(pressDurationMs))
+
+        // Move to target
+        let stepDelay = max(1, moveDurationMs / steps)
+        for i in 1...steps {
+            let t = Double(i) / Double(steps)
+            let cx = fromX + (toX - fromX) * t
+            let cy = fromY + (toY - fromY) * t
+            try await Task.sleep(for: .milliseconds(stepDelay))
+            try await sendTouch(.down, x: cx, y: cy)
+        }
+
+        // Drop
+        try await sendTouch(.up, x: toX, y: toY)
+    }
+
     // MARK: - Swipe (iOS point coordinates)
 
     func swipe(

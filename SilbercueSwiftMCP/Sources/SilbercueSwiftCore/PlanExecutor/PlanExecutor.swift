@@ -172,16 +172,14 @@ public final class PlanExecutor {
                 guard let cx = binding.centerX, let cy = binding.centerY else {
                     return .step(.failed("No coordinates for double_tap"), [])
                 }
-                let wda = try await SessionState.shared.wdaClient()
-                try await wda.doubleTap(x: Double(cx), y: Double(cy))
+                try await UIActions.doubleTap(x: Double(cx), y: Double(cy))
 
             case .longPress(let target, let durationMs):
                 let binding = try await variables.resolveTarget(target)
                 guard let cx = binding.centerX, let cy = binding.centerY else {
                     return .step(.failed("No coordinates for long_press"), [])
                 }
-                let wda = try await SessionState.shared.wdaClient()
-                try await wda.longPress(x: Double(cx), y: Double(cy), durationMs: durationMs)
+                try await UIActions.longPress(x: Double(cx), y: Double(cy), durationMs: durationMs)
 
             case .swipe(let direction, let element):
                 let (startX, startY, endX, endY) = try await resolveSwipe(direction: direction, element: element)

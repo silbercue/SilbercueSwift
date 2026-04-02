@@ -196,6 +196,75 @@ public enum UIActions {
         )
     }
 
+    // MARK: - Double Tap
+
+    /// Double-tap at specific x,y coordinates.
+    /// IndigoHID first, WDA fallback.
+    public static func doubleTap(x: Double, y: Double) async throws {
+        let udid = try await currentUDID()
+        if let native = await SessionState.shared.nativeInput(for: udid) {
+            do {
+                try await native.doubleTap(x: x, y: y)
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput(for: udid)
+            }
+        }
+        let client = await SessionState.shared.wdaClient(for: udid)
+        try await client.doubleTap(x: x, y: y)
+    }
+
+    // MARK: - Long Press
+
+    /// Long-press at specific x,y coordinates.
+    /// IndigoHID first, WDA fallback.
+    public static func longPress(x: Double, y: Double, durationMs: Int = 1000) async throws {
+        let udid = try await currentUDID()
+        if let native = await SessionState.shared.nativeInput(for: udid) {
+            do {
+                try await native.longPress(x: x, y: y, durationMs: durationMs)
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput(for: udid)
+            }
+        }
+        let client = await SessionState.shared.wdaClient(for: udid)
+        try await client.longPress(x: x, y: y, durationMs: durationMs)
+    }
+
+    // MARK: - Drag and Drop
+
+    /// Drag from source to target.
+    /// IndigoHID first, WDA fallback.
+    public static func dragAndDrop(
+        fromX: Double, fromY: Double,
+        toX: Double, toY: Double,
+        pressDurationMs: Int = 1000,
+        moveDurationMs: Int = 300
+    ) async throws {
+        let udid = try await currentUDID()
+        if let native = await SessionState.shared.nativeInput(for: udid) {
+            do {
+                try await native.dragAndDrop(
+                    fromX: fromX, fromY: fromY,
+                    toX: toX, toY: toY,
+                    pressDurationMs: pressDurationMs,
+                    moveDurationMs: moveDurationMs
+                )
+                return
+            } catch {
+                await SessionState.shared.invalidateNativeInput(for: udid)
+            }
+        }
+        let client = await SessionState.shared.wdaClient(for: udid)
+        try await client.dragAndDrop(
+            sourceElement: nil, targetElement: nil,
+            fromX: fromX, fromY: fromY,
+            toX: toX, toY: toY,
+            pressDurationMs: pressDurationMs, holdDurationMs: 300
+        )
+    }
+
     // MARK: - Text
 
     /// Type text into an element. Auto-finds first text input if elementId is nil.
