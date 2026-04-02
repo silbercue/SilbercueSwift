@@ -26,7 +26,7 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | View hierarchy | ~259ms | ~938ms | ~44ms | **~31ms** (<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~5ms**) |
 | Find element | — | 76ms | 50ms | **31ms** (<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms** + auto-scroll) |
 | Tap (coordinates) | 235ms | 470ms | 48ms | **16ms** (<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **4ms**) |
-| Swipe | 1284ms | 2685ms | 262ms | **~320ms** |
+| Swipe | 1284ms | 2685ms | 262ms | **~250ms** |
 | Build for simulator | Yes | — | — | **Yes** |
 | Build + Run in one call | Yes (sequential) | — | — | **Yes (parallel, ~9s faster)** |
 | Structured test results | Partial | — | — | **Full xcresult JSON** |
@@ -47,7 +47,7 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Multi-device check | — | — | — | **Dark Mode, Landscape, iPad** <img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> |
 | Cross-platform (Android) | — | Yes | — | — |
 | Tools | 77 (Rust) | 61 (Node.js + Appium) | 15 (Swift) | **58 (Native Swift, 8.5MB)** |
-| Cold start | ~400ms | ~1s | ~100ms | **~50ms** |
+| Cold start | ~400ms | ~1000ms | ~100ms | **~50ms** |
 
 ### Where SilbercueSwift really shines
 
@@ -208,8 +208,8 @@ Native input for gestures, WDA for element queries and alerts — no Appium, no 
 | `find_element` / `find_elements` | Find elements by accessibility ID, predicate, class chain. **`scroll: true` auto-scrolls** until the element appears (SmartScroll — 3 fallback strategies) | **31ms** (<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms**) |
 | `click_element` | Tap a UI element | **~75ms** |
 | `tap_coordinates` | Coordinate-based tap | **~16ms** (<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~4ms**) |
-| `double_tap` / `long_press` | Double tap or long press at coordinates | **~60ms** / **~1s** |
-| `swipe` | Directional swipe | **~320ms** |
+| `double_tap` / `long_press` | Double tap or long press at coordinates | **~60ms** / **~1000ms** |
+| `swipe` | Directional swipe | **~250ms** |
 | `pinch` | Zoom in/out | ~400ms <img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> |
 | `drag_and_drop` | **Drag from source to target** — element-to-element, coordinates, or mixed. Smart defaults for reorderable lists, Kanban boards, sliders | **~1.3s** |
 | `navigate` | **Find + tap + settle + screenshot in 1 call** — saves 3-4 roundtrips | **~380ms** |
@@ -427,7 +427,7 @@ Measured on M3 MacBook Pro, iOS 26.4 Simulator. All values are median of 5 runs 
 | Screenshot | 83ms | 1127ms | 77ms | 316ms | **15ms** |
 | Find element | 50ms | N/A | 76ms | **31ms** | **<1ms** |
 | Tap (coordinates) | 48ms | 235ms | 470ms | **16ms** | **4ms** |
-| Swipe | 262ms | 1284ms | 2685ms | **~320ms** | **~320ms** |
+| Swipe | 262ms | 1284ms | 2685ms | **~250ms** | **~250ms** |
 | View hierarchy | 44ms | 259ms | 938ms | **31ms** | **5ms** |
 | Navigate (1 call) | — | — | — | **~380ms** | **~380ms** |
 | Double tap | — | — | — | **~84ms** | **~60ms** |
@@ -437,7 +437,7 @@ Measured on M3 MacBook Pro, iOS 26.4 Simulator. All values are median of 5 runs 
 | Scroll to element | — | — | swipe loop | **—** | **Automatic** |
 | Build (clean) | — | 2501ms | — | 3188ms | **1800ms** |
 | Simulator list | 12ms | 567ms | — | **15ms** | **15ms** |
-| Cold start | ~100ms | ~400ms | ~1s | **~50ms** | **~50ms** |
+| Cold start | ~100ms | ~400ms | ~1000ms | **~50ms** | **~50ms** |
 | Binary size | ~5MB | ~4MB | ~200MB | **8.5MB** | **8.5MB** |
 
 ## Comparison with other MCP servers

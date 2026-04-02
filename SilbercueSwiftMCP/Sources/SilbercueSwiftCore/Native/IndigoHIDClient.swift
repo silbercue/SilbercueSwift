@@ -119,8 +119,8 @@ final class IndigoHIDClient: @unchecked Sendable {
     func swipe(
         fromX: Double, fromY: Double,
         toX: Double, toY: Double,
-        durationMs: Int = 300,
-        steps: Int = 15
+        durationMs: Int = 230,
+        steps: Int = 12
     ) async throws {
         let stepDelay = max(1, durationMs / steps)
 
