@@ -4,7 +4,7 @@ import MCP
 // MARK: - Version (single source of truth — update on each release)
 
 public enum SilbercueSwiftVersion {
-    public static let current = "3.4.0"
+    public static let current = "3.5.0"
 }
 
 // MARK: - Debug Logging (stderr, safe for MCP stdio transport)
