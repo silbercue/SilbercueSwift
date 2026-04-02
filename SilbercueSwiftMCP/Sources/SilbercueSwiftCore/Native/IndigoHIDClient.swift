@@ -55,9 +55,15 @@ final class IndigoHIDClient: @unchecked Sendable {
 
     // MARK: - Tap (iOS point coordinates)
 
+    /// Minimum touch hold duration in milliseconds.
+    /// Gesture recognizers in complex SwiftUI hierarchies need a minimum touch
+    /// duration to distinguish tap from swipe-start or touch-cancel.
+    /// 15ms is the conservative safe default. Pro validates and reduces this.
+    nonisolated(unsafe) static var touchHoldMs: Int = 15
+
     func tap(x: Double, y: Double) async throws {
         try await sendTouch(.down, x: x, y: y)
-        try await Task.sleep(for: .milliseconds(30))
+        try await Task.sleep(for: .milliseconds(Self.touchHoldMs))
         try await sendTouch(.up, x: x, y: y)
     }
 

@@ -26,4 +26,10 @@ public enum ProHooks {
     /// Returns cached label/value from AXPElementCache, nil to fall back to WDA.
     public nonisolated(unsafe) static var getTextHandler:
         (@Sendable (_ elementId: String) async -> String?)?
+
+    /// Pro tap hold override. Reduces IndigoHID touch hold duration after validation.
+    /// Free default: 15ms (safe for all gesture recognizers).
+    public static func setTapHoldMs(_ ms: Int) {
+        IndigoHIDClient.touchHoldMs = ms
+    }
 }
