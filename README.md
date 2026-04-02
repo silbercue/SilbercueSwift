@@ -28,8 +28,8 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Failure screenshots from xcresult | — | — | — | **Auto-exported** |
 | Code coverage per file | Basic | — | — | **Sorted, filterable** |
 | Build error diagnosis | stderr parsing | — | — | **xcresult JSON with file:line** |
-| Find element | — | 76ms | 50ms | **31ms** (Pro **<1ms**) (+ auto-scroll ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square)) |
-| Tap (coordinates) | 235ms | 470ms | 48ms | **16ms** (Pro **4ms**) |
+| Find element | — | 76ms | 50ms | **31ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **<1ms** + auto-scroll) |
+| Tap (coordinates) | 235ms | 470ms | 48ms | **16ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **4ms**) |
 | Swipe | 1284ms | 2685ms | 262ms | **~320ms** |
 | Double tap | — | — | — | **~60ms** |
 | Drag & drop | — | Coordinates only (3 calls) | — | **Element-to-element (1 call)** |
@@ -38,8 +38,8 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 | Alert handling | — | Single alert | — | **3-tier search + batch accept_all** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | iOS 18 ContactsUI dialog | — | — | — | **Supported** |
 | Batch UI automation | — | — | — | **run_plan: multi-step plans with adaptive decisions** |
-| Screenshot latency | ~1127ms | ~77ms | ~83ms | **~316ms** (Pro **~15ms**, 75x) |
-| View hierarchy | ~259ms | ~938ms | ~44ms | **~31ms** (Pro **~5ms**) |
+| Screenshot latency | ~1127ms | ~77ms | ~83ms | **~316ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **~15ms**, 75x) |
+| View hierarchy | ~259ms | ~938ms | ~44ms | **~31ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **~5ms**) |
 | Console log per failed test | — | — | — | **Optional** |
 | Log filtering | Subsystem only | — | Partial | **Topic-filtered: 90% fewer tokens** ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | Wait for log pattern | — | — | — | **Regex + timeout** |
@@ -51,7 +51,7 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 
 ### Where SilbercueSwift really shines
 
-> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots up to 75x faster** — ~316ms (Pro ~15ms)
+> ![killer feat](https://img.shields.io/badge/killer%20feat-%23FFD700?style=flat-square) **Screenshots up to 75x faster** — ~316ms (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) ~15ms)
 
 Free tier screenshots (~316ms) are faster than XcodeBuildMCP (~1127ms) and most alternatives. Pro brings latency down to ~15ms — 5x faster than Appium, 75x faster than XcodeBuildMCP. Agents can take screenshots freely without penalty at either tier.
 
@@ -205,16 +205,16 @@ Native input for gestures, WDA for element queries and alerts — no Appium, no 
 | Tool | Description | Latency |
 |---|---|---|
 | `handle_alert` | **Accept, dismiss, or batch-handle system & in-app alerts** | ~200ms |
-| `find_element` / `find_elements` | Find elements by accessibility ID, predicate, class chain. **`scroll: true` auto-scrolls** until the element appears (SmartScroll — 3 fallback strategies) | **31ms** (Pro **<1ms**) |
+| `find_element` / `find_elements` | Find elements by accessibility ID, predicate, class chain. **`scroll: true` auto-scrolls** until the element appears (SmartScroll — 3 fallback strategies) | **31ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **<1ms**) |
 | `click_element` | Tap a UI element | **~75ms** |
-| `tap_coordinates` | Coordinate-based tap | **~16ms** (Pro **~4ms**) |
+| `tap_coordinates` | Coordinate-based tap | **~16ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **~4ms**) |
 | `double_tap` / `long_press` | Double tap or long press at coordinates | **~60ms** / **~1s** |
 | `swipe` | Directional swipe | **~320ms** |
 | `pinch` | Zoom in/out | ~400ms ![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) |
 | `drag_and_drop` | **Drag from source to target** — element-to-element, coordinates, or mixed. Smart defaults for reorderable lists, Kanban boards, sliders | **~1.3s** |
 | `navigate` | **Find + tap + settle + screenshot in 1 call** — saves 3-4 roundtrips | **~380ms** |
 | `type_text` / `get_text` | Type into or read from elements | ~100-300ms |
-| `get_source` | Full view hierarchy (JSON/XML) | **~31ms** (Pro **~5ms**) |
+| `get_source` | Full view hierarchy (JSON/XML) | **~31ms** (![Pro](https://img.shields.io/badge/Pro-blueviolet?style=flat-square) **~5ms**) |
 | `wda_status` / `wda_create_session` | WDA health check & session management | ~50-100ms |
 
 #### handle_alert — the smartest alert handler
