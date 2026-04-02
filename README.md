@@ -22,10 +22,10 @@ SilbercueSwift fixes this. It parses `.xcresult` bundles — the same structured
 
 | What you get | XcodeBuildMCP | Appium-MCP | iosef | SilbercueSwift |
 |---|---|---|---|---|
-| Screenshot latency | ~1127ms | ~77ms | ~83ms | **~316ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~15ms** (75x) |
-| View hierarchy | ~259ms | ~938ms | ~44ms | **~31ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~5ms** |
-| Find element | — | 76ms | 50ms | **31ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms** + auto-scroll |
-| Tap (coordinates) | 235ms | 470ms | 48ms | **16ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **4ms** |
+| Screenshot latency | ~1127ms | ~77ms | ~83ms | **~316ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~15ms**, 75x) |
+| View hierarchy | ~259ms | ~938ms | ~44ms | **~31ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~5ms**) |
+| Find element | — | 76ms | 50ms | **31ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms** + auto-scroll) |
+| Tap (coordinates) | 235ms | 470ms | 48ms | **16ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **4ms**) |
 | Swipe | 1284ms | 2685ms | 262ms | **~250ms** |
 | Build for simulator | Yes | — | — | **Yes** |
 | Build + Run in one call | Yes (sequential) | — | — | **Yes (parallel, ~9s faster)** |
@@ -205,16 +205,16 @@ Native input for gestures, WDA for element queries and alerts — no Appium, no 
 | Tool | Description | Latency |
 |---|---|---|
 | `handle_alert` | **Accept, dismiss, or batch-handle system & in-app alerts** | ~200ms |
-| `find_element` / `find_elements` | Find elements by accessibility ID, predicate, class chain. **`scroll: true` auto-scrolls** until the element appears (SmartScroll — 3 fallback strategies) | **31ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms** |
+| `find_element` / `find_elements` | Find elements by accessibility ID, predicate, class chain. **`scroll: true` auto-scrolls** until the element appears (SmartScroll — 3 fallback strategies) | **31ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **<1ms**) |
 | `click_element` | Tap a UI element | **~75ms** |
-| `tap_coordinates` | Coordinate-based tap | **~16ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~4ms** |
+| `tap_coordinates` | Coordinate-based tap | **~16ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~4ms**) |
 | `double_tap` / `long_press` | Double tap or long press at coordinates | **~60ms** / **~1000ms** |
 | `swipe` | Directional swipe | **~250ms** |
 | `pinch` | Zoom in/out | ~400ms <img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> |
 | `drag_and_drop` | **Drag from source to target** — element-to-element, coordinates, or mixed. Smart defaults for reorderable lists, Kanban boards, sliders | **~1.3s** |
 | `navigate` | **Find + tap + settle + screenshot in 1 call** — saves 3-4 roundtrips | **~380ms** |
 | `type_text` / `get_text` | Type into or read from elements | ~100-300ms |
-| `get_source` | Full view hierarchy (JSON/XML) | **~31ms**<br><img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~5ms** |
+| `get_source` | Full view hierarchy (JSON/XML) | **~31ms**<br>(<img src="https://img.shields.io/badge/Pro-blueviolet?style=flat-square" align="center"> **~5ms**) |
 | `wda_status` / `wda_create_session` | WDA health check & session management | ~50-100ms |
 
 #### handle_alert — the smartest alert handler
